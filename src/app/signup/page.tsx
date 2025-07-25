@@ -6,6 +6,7 @@ import { Formik, Form, Field, ErrorMessage } from "formik";
 import * as Yup from "yup";
 import {
   GoogleAuthProvider,
+  signInWithPopup,
   signInWithRedirect,
   createUserWithEmailAndPassword,
   updateProfile,
@@ -25,15 +26,18 @@ export default function SignupPage() {
   const toggleConfirmPasswordVisibility = () =>
     setShowConfirmPassword(!showConfirmPassword);
 
-  const handleGoogleSignup = async () => {
-    try {
-      const provider = new GoogleAuthProvider();
-      await signInWithRedirect(auth, provider);
-    } catch (err: unknown) {
-      console.error(err);
-      setFirebaseError("Google sign-up failed. Please try again.");
-    }
-  };
+ const handleGoogleSignup = async () => {
+   try {
+     const provider = new GoogleAuthProvider();
+     await signInWithPopup(auth, provider);
+     router.push("/dashboard");
+     await signInWithRedirect(auth, provider);
+   } catch (err: unknown) {
+     console.error(err);
+     setFirebaseError("Google sign-up failed. Please try again.");
+   }
+ };
+
 
   const SignupSchema = Yup.object().shape({
     fullName: Yup.string().required("Full name is required"),
@@ -56,9 +60,14 @@ export default function SignupPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#e0f7fa] to-[#f4f9fb] dark:from-[#0c1b1f] dark:to-[#1c2b2f] px-4">
-      <div className="w-full max-w-lg p-8 bg-white dark:bg-[#152226] rounded-3xl shadow-xl space-y-6">
+      <div className="w-full max-w-lg p-8 bg-white dark:bg-[#152226] rounded-3xl shadow-xl space-y-6 mt-28">
         <div className="flex justify-center mb-2">
-          <Image src="/logo.svg" alt="WelcomeNestHR" width={120} height={40} />
+          <Image
+            src="/welcomenesthr.png"
+            alt="WelcomeNestHR"
+            width={120}
+            height={40}
+          />
         </div>
 
         <h2 className="text-3xl font-bold text-center text-[#004d59] dark:text-white">
@@ -103,6 +112,14 @@ export default function SignupPage() {
                 fullName: values.fullName,
                 plan: "free",
                 createdAt: new Date().toISOString(),
+              });
+
+              await setDoc(doc(db, "customers", user.uid), {
+                email: user.email,
+                name: values.fullName,
+                stripeCustomerId: "",
+                plan: "free",
+                createdAt: new Date(),
               });
 
               router.push("/dashboard");

@@ -87,7 +87,7 @@ const NavigationBar = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 h-28 flex justify-between items-center">
         <Link href="/" className="flex items-center gap-2">
           <Image
-            src={isDarkMode ? "/hr-logo.png" : "/logo-light.png"}
+            src={isDarkMode ? "/welcomenesthr.png" : "/welcomenesthr.png"}
             alt="WelcomeNest Logo"
             width={110}
             height={48}

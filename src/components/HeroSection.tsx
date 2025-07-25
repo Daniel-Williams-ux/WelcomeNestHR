@@ -42,14 +42,19 @@ const HeroSection = () => {
 
           {/* Headline */}
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight tracking-tight">
-            Onboarding that builds{" "}
+            Human resources that builds{" "}
             <span className="text-brand-light">belonging</span> — from the very
             first click.
           </h1>
 
           {/* Subheadline */}
-          <p className="mt-6 text-lg text-gray-700 dark:text-gray-300">
+          {/* <p className="mt-6 text-lg text-gray-700 dark:text-gray-300">
             WelcomeNestHR is the first onboarding platform that fuses
+            automation, emotional intelligence, and community — to help every
+            new hire thrive from day one.
+          </p> */}
+          <p className="mt-6 text-lg text-gray-700 dark:text-gray-300">
+            WelcomeNestHR is the first human resources platform that fuses
             automation, emotional intelligence, and community — to help every
             new hire thrive from day one.
           </p>
