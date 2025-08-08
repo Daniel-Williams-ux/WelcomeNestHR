@@ -3,6 +3,7 @@ import * as admin from "firebase-admin";
 import Stripe from "stripe";
 import * as express from "express";
 import * as bodyParser from "body-parser";
+import { Request, Response } from "express";
 
 admin.initializeApp();
 const stripe = new Stripe("your_stripe_secret_key");
@@ -14,7 +15,7 @@ const app = express();
 //  Use raw body for Stripe webhook verification
 app.use(bodyParser.raw({ type: "application/json" }));
 
-app.post("/handleStripeWebhook", async (req, res) => {
+app.post("/handleStripeWebhook", async (req: Request, res: Response) => {
   const sig = req.headers["stripe-signature"] as string;
 
   let event: Stripe.Event;

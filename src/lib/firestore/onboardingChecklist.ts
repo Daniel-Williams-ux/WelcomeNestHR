@@ -3,10 +3,9 @@ import { doc, getDoc, setDoc } from "firebase/firestore";
 
 /**
  * Fetches the user's onboarding checklist from Firestore.
- * Ensures it always returns a valid array.
  */
 export async function getUserChecklist(uid: string): Promise<string[]> {
-  const ref = doc(db, "onboardingChecklists", uid);
+  const ref = doc(db, "users", uid, "onboarding", "checklist"); // ✅ correct path
   const snapshot = await getDoc(ref);
 
   if (!snapshot.exists()) {
@@ -21,6 +20,6 @@ export async function getUserChecklist(uid: string): Promise<string[]> {
  * Saves the user's updated checklist to Firestore.
  */
 export async function saveUserChecklist(uid: string, completed: string[]) {
-  const ref = doc(db, "onboardingChecklists", uid);
+  const ref = doc(db, "users", uid, "onboarding", "checklist"); // ✅ correct path
   await setDoc(ref, { completed }, { merge: true });
 }

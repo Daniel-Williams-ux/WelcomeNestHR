@@ -6,8 +6,14 @@ import {
   signInWithEmailAndPassword,
   GoogleAuthProvider,
   signInWithPopup,
+  setPersistence,
+  browserSessionPersistence,
+  browserLocalPersistence,
 } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
+import { FirebaseError } from "firebase/app";
+import { doc, getDoc } from "firebase/firestore";
+import { handleNewUser } from "@/lib/handleNewUser";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -16,28 +22,57 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const router = useRouter();
 
+  // ✅ Runs only on first login
+  const checkAndSeedUser = async (uid: string) => {
+    const userDocRef = doc(db, "users", uid);
+    const userDocSnap = await getDoc(userDocRef);
+
+    if (!userDocSnap.exists()) {
+      console.log("🆕 First-time login detected — creating trial data...");
+      await handleNewUser(uid);
+    }
+  };
+
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      if (!remember) {
-        auth.setPersistence("session"); // default browser session
-      }
+      const persistence = remember
+        ? browserLocalPersistence
+        : browserSessionPersistence;
+
+      await setPersistence(auth, persistence);
+      const userCredential = await signInWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
+
+      await checkAndSeedUser(userCredential.user.uid);
       router.push("/dashboard");
-    } catch (err: any) {
-      setError(err.message || "Login failed. Please try again.");
+    } catch (err) {
+      const error = err as FirebaseError;
+      setError(error.message || "Login failed. Please try again.");
     }
   };
 
   const handleGoogleLogin = async () => {
     const provider = new GoogleAuthProvider();
+
     try {
-      await signInWithPopup(auth, provider);
+      const persistence = remember
+        ? browserLocalPersistence
+        : browserSessionPersistence;
+
+      await setPersistence(auth, persistence);
+      const result = await signInWithPopup(auth, provider);
+
+      await checkAndSeedUser(result.user.uid);
       router.push("/dashboard");
-    } catch (err: any) {
-      setError(err.message || "Google sign-in failed.");
+    } catch (err) {
+      const error = err as FirebaseError;
+      setError(error.message || "Google sign-in failed.");
     }
   };
 

@@ -1,20 +1,55 @@
-// app/upgrade/page.tsx
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Sparkles, Lock } from "lucide-react";
+import { auth, db } from "@/lib/firebase";
+import { doc, getDoc } from "firebase/firestore";
 
 export default function UpgradePage() {
+  const [daysLeft, setDaysLeft] = useState<number | null>(null);
+
+  useEffect(() => {
+    const fetchTrialInfo = async () => {
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const userRef = doc(db, "users", user.uid);
+      const snap = await getDoc(userRef);
+
+      if (snap.exists()) {
+        const data = snap.data();
+        if (data.trialEndsAt) {
+          const endDate = new Date(data.trialEndsAt);
+          const today = new Date();
+          const diffTime = endDate.getTime() - today.getTime();
+          const days = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          setDaysLeft(days);
+        }
+      }
+    };
+
+    fetchTrialInfo();
+  }, []);
+
   return (
     <main className="min-h-screen bg-[#F9FAFB] flex flex-col items-center justify-center px-6 py-12 text-center">
       <div className="max-w-xl">
         <div className="flex justify-center mb-4">
           <Lock className="w-12 h-12 text-[#FB8C00]" />
         </div>
-        <h1 className="text-3xl font-bold text-[#004d59] mb-4">
-          Your trial has ended.
-        </h1>
+
+        {daysLeft !== null && daysLeft > 0 ? (
+          <h1 className="text-3xl font-bold text-[#004d59] mb-4">
+            Trial – {daysLeft} day{daysLeft !== 1 ? "s" : ""} left
+          </h1>
+        ) : (
+          <h1 className="text-3xl font-bold text-[#004d59] mb-4">
+            Your trial has ended.
+          </h1>
+        )}
+
         <p className="text-gray-700 mb-6">
           To continue enjoying smart onboarding, LifeSync, and everything
           WelcomeNestHR offers, upgrade to the <strong>Platinum Plan</strong>.

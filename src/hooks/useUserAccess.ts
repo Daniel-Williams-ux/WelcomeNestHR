@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { onAuthStateChanged, User } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, Timestamp } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 
 type AccessState = {
@@ -12,13 +12,15 @@ type AccessState = {
   isTrialExpired: boolean;
   canAccessPremium: boolean;
   trialDaysLeft: number | null;
+  trialEndsAt: Date | null;
 };
 
 export function useUserAccess(): AccessState {
   const [user, setUser] = useState<User | null>(null);
   const [plan, setPlan] = useState<"free" | "trial" | "platinum" | null>(null);
   const [isTrialExpired, setIsTrialExpired] = useState(false);
-  const [trialDaysLeft, setTrialDaysLeft] = useState<number | null>(null); 
+  const [trialDaysLeft, setTrialDaysLeft] = useState<number | null>(null);
+  const [trialEndsAt, setTrialEndsAt] = useState<Date | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -44,34 +46,41 @@ export function useUserAccess(): AccessState {
           if (userSnap.exists()) {
             const data = userSnap.data();
             const userPlan = data.plan || "free";
-            const trialEndsAt = data.trialEndsAt?.toDate?.();
+
+            // ✅ Convert Firestore trialEndsAt to JS Date
+            let endsAt: Date | null = null;
+            if (data.trialEndsAt instanceof Timestamp) {
+              endsAt = data.trialEndsAt.toDate();
+            } else if (data.trialEndsAt instanceof Date) {
+              endsAt = data.trialEndsAt;
+            } else if (typeof data.trialEndsAt === "string") {
+              const parsed = new Date(data.trialEndsAt);
+              if (!isNaN(parsed.getTime())) {
+                endsAt = parsed;
+              }
+            }
 
             setPlan(userPlan);
+            setTrialEndsAt(endsAt);
 
-            if (
-              userPlan === "trial" &&
-              trialEndsAt instanceof Date &&
-              !isNaN(trialEndsAt.getTime())
-            ) {
+            if (endsAt instanceof Date && !isNaN(endsAt.getTime())) {
               const now = new Date();
-              const expired = now > trialEndsAt;
+              const expired = now > endsAt;
               setIsTrialExpired(expired);
 
               const daysLeft = Math.max(
                 0,
                 Math.ceil(
-                  (trialEndsAt.getTime() - now.getTime()) /
-                    (1000 * 60 * 60 * 24)
+                  (endsAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
                 )
               );
-
               setTrialDaysLeft(daysLeft);
 
-              console.log("📆 Trial ends at:", trialEndsAt.toISOString());
+              console.log("📆 Trial ends at:", endsAt.toISOString());
               console.log("📊 Trial expired?", expired);
               console.log("🧮 Trial days left:", daysLeft);
             } else {
-              console.log("⛔ trialEndsAt not set or invalid");
+              console.log("⛔ No valid trial end date found.");
               setIsTrialExpired(false);
               setTrialDaysLeft(null);
             }
@@ -80,18 +89,21 @@ export function useUserAccess(): AccessState {
             setPlan("free");
             setIsTrialExpired(false);
             setTrialDaysLeft(null);
+            setTrialEndsAt(null);
           }
         } catch (error) {
           console.error("🔥 Error fetching user document:", error);
           setPlan(null);
           setIsTrialExpired(false);
           setTrialDaysLeft(null);
+          setTrialEndsAt(null);
         }
       } else {
         console.warn("⚠️ No Firebase user detected.");
         setPlan(null);
         setIsTrialExpired(false);
         setTrialDaysLeft(null);
+        setTrialEndsAt(null);
       }
 
       clearTimeout(timeout);
@@ -108,6 +120,15 @@ export function useUserAccess(): AccessState {
   const canAccessPremium =
     plan === "platinum" || (plan === "trial" && !isTrialExpired);
 
+  console.log("👤 Access hook state:", {
+    user,
+    loading,
+    plan,
+    isTrialExpired,
+    trialDaysLeft,
+    trialEndsAt,
+  });
+
   return {
     user,
     loading,
@@ -115,5 +136,6 @@ export function useUserAccess(): AccessState {
     isTrialExpired,
     canAccessPremium,
     trialDaysLeft,
+    trialEndsAt,
   };
 }

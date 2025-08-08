@@ -15,18 +15,19 @@ export default function OnboardingChecklist() {
   const [loading, setLoading] = useState(true);
 
   // Fetch user's saved checklist
- useEffect(() => {
-   if (accessLoading) return; // still loading user info
-   if (!user?.uid) {
-     setLoading(false); // user not logged in
-     return;
-   }
+useEffect(() => {
+  if (accessLoading) return;
+  if (!user?.uid) {
+    setLoading(false);
+    return;
+  }
 
-   getUserChecklist(user.uid).then((data) => {
-     setCompleted(data);
-     setLoading(false);
-   });
- }, [user]);
+  getUserChecklist(user.uid).then((data) => {
+    setCompleted(data);
+    setLoading(false);
+  });
+}, [user, accessLoading]);
+
 
 
   const toggleStep = async (id: string, checked: boolean) => {
