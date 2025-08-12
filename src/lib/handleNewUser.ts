@@ -5,6 +5,7 @@ import {
   writeBatch,
   getFirestore,
   Timestamp,
+  getDocs,
 } from "firebase/firestore";
 import { addDays } from "date-fns";
 import { initializeApp, getApps, getApp } from "firebase/app";
@@ -15,7 +16,6 @@ const firebaseConfig = {
   projectId: "YOUR_PROJECT_ID",
 };
 
-// ✅ Prevent duplicate Firebase initialization
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const db = getFirestore(app);
 
@@ -29,18 +29,44 @@ interface Milestone {
   endDate: string;
 }
 
-export async function handleNewUser(uid: string) {
+export async function handleNewUser(uid: string, orgId: string) {
   const userRef = doc(db, "users", uid);
 
-  // ✅ Create user base profile with trial and seeded flag
+  // ✅ Create base user profile with orgId
   await setDoc(userRef, {
     createdAt: Timestamp.now(),
     plan: "trial",
-    trialEndsAt: Timestamp.fromDate(addDays(new Date(), 30)), // 30-day trial
-    milestonesSeeded: true, // <-- mark as seeded immediately
+    trialEndsAt: Timestamp.fromDate(addDays(new Date(), 30)),
+    milestonesSeeded: true,
+    orgId, // <-- link to organization
   });
 
-  // Define default milestones
+  // ✅ Immediately clone org tasks so dashboard shows them instantly
+  const orgTasksSnap = await getDocs(
+    collection(db, "organizations", orgId, "onboardingTasks")
+  );
+
+  if (!orgTasksSnap.empty) {
+    const batch = writeBatch(db);
+    orgTasksSnap.forEach((docSnap) => {
+      const data = docSnap.data();
+      const userTaskRef = doc(db, "users", uid, "onboarding", docSnap.id);
+      batch.set(userTaskRef, {
+        title: data.title || "Untitled task",
+        description: data.description || "",
+        completed: !!data.autoComplete,
+        trigger: data.trigger || null,
+        createdAt: Timestamp.now(),
+        order: data.order ?? null,
+      });
+    });
+    await batch.commit();
+    console.log(`✅ Cloned ${orgTasksSnap.size} org tasks to new user ${uid}`);
+  } else {
+    console.warn(`⚠️ No onboarding tasks found for org ${orgId}`);
+  }
+
+  // ✅ Optionally seed milestones (kept from your original function)
   const milestones: Milestone[] = [
     {
       id: "milestone_1",
@@ -80,18 +106,15 @@ export async function handleNewUser(uid: string) {
     },
   ];
 
-  // Batch write milestones
-  const batch = writeBatch(db);
+  const milestonesBatch = writeBatch(db);
   milestones.forEach((milestone) => {
     const milestoneRef = doc(
       collection(db, "users", uid, "milestones"),
       milestone.id
     );
-    batch.set(milestoneRef, milestone);
+    milestonesBatch.set(milestoneRef, milestone);
   });
 
-  await batch.commit();
-  console.log(
-    `✅ Created user ${uid} with default milestones and trial period`
-  );
+  await milestonesBatch.commit();
+  console.log(`✅ Created milestones for new user ${uid}`);
 }
