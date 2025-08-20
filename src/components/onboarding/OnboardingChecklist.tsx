@@ -15,20 +15,18 @@ export default function OnboardingChecklist() {
   const [loading, setLoading] = useState(true);
 
   // Fetch user's saved checklist
-useEffect(() => {
-  if (accessLoading) return;
-  if (!user?.uid) {
-    setLoading(false);
-    return;
-  }
+  useEffect(() => {
+    if (accessLoading) return;
+    if (!user?.uid) {
+      setLoading(false);
+      return;
+    }
 
-  getUserChecklist(user.uid).then((data) => {
-    setCompleted(data);
-    setLoading(false);
-  });
-}, [user, accessLoading]);
-
-
+    getUserChecklist(user.uid).then((data) => {
+      setCompleted(data);
+      setLoading(false);
+    });
+  }, [user, accessLoading]);
 
   const toggleStep = async (id: string, checked: boolean) => {
     if (!user?.uid) return;
@@ -52,11 +50,14 @@ useEffect(() => {
   return (
     <div className="space-y-4">
       {onboardingChecklist.map((step) => (
-        <label key={step.id} className="flex items-center space-x-3">
+        <label
+          key={step.id}
+          className="flex items-center space-x-3 cursor-pointer"
+        >
           <Checkbox
             id={step.id}
             checked={completed.includes(step.id)}
-            onChange={(e) => toggleStep(step.id, e.target.checked)}
+            onCheckedChange={(checked) => toggleStep(step.id, checked === true)}
           />
           <span className="text-gray-800 dark:text-gray-100">{step.label}</span>
         </label>
