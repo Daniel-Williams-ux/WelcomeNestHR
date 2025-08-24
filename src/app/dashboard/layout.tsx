@@ -2,7 +2,7 @@
 
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import DashboardTopbar from "@/components/dashboard/DashboardTopbar";
-import ProtectedRoute from "@/components/auth/ProtectedRoute"; // ✅ Import this
+import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { useState } from "react";
 
 export default function DashboardLayout({

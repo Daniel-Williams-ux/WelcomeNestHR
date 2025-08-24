@@ -12,8 +12,11 @@ import {
   CreditCard,
   Settings,
   X,
+  Bot, // 🤖 AI icon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useState } from "react";
+import AIAssistantPanel from "@/components/dashboard/AIAssistantPanel";
 
 type SidebarProps = {
   sidebarOpen: boolean;
@@ -52,6 +55,7 @@ const navItems = [
 
 export function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
   const pathname = usePathname();
+  const [aiOpen, setAiOpen] = useState(false);
 
   return (
     <>
@@ -72,6 +76,15 @@ export function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
               <span>{item.name}</span>
             </Link>
           ))}
+
+          {/* Ask AI button */}
+          <button
+            onClick={() => setAiOpen(true)}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 hover:bg-[#006e7f] w-full text-left"
+          >
+            <Bot size={18} />
+            <span>Ask AI</span>
+          </button>
         </nav>
       </div>
 
@@ -103,8 +116,23 @@ export function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
               <span>{item.name}</span>
             </Link>
           ))}
+
+          {/* Ask AI button (mobile) */}
+          <button
+            onClick={() => {
+              setAiOpen(true);
+              setSidebarOpen(false);
+            }}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 hover:bg-[#006e7f] w-full text-left"
+          >
+            <Bot size={18} />
+            <span>Ask AI</span>
+          </button>
         </nav>
       </div>
+
+      {/* AI Panel */}
+      <AIAssistantPanel isOpen={aiOpen} onClose={() => setAiOpen(false)} />
     </>
   );
 }

@@ -16,7 +16,7 @@ import { db } from "@/lib/firebase";
 import { useAuth } from "./useAuth";
 
 export interface Milestone {
-  id?: string; // optional when writing to Firestore
+  id?: string;
   title: string;
   description: string;
   status: "complete" | "in_progress" | "upcoming";
@@ -53,7 +53,7 @@ const DEFAULT_MILESTONES: Omit<Milestone, "id">[] = [
 ];
 
 const milestoneConverter: FirestoreDataConverter<Milestone> = {
-  toFirestore: ({ id, ...data }) => data, // drop id on write
+  toFirestore: ({ id, ...data }) => data,
   fromFirestore: (snap: QueryDocumentSnapshot<DocumentData>) => ({
     id: snap.id,
     ...(snap.data() as Omit<Milestone, "id">),
@@ -64,6 +64,7 @@ export function useMilestones() {
   const { user } = useAuth();
   const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -76,88 +77,101 @@ export function useMilestones() {
       "milestones"
     ).withConverter(milestoneConverter);
 
+    let unsub: (() => void) | undefined;
+
     async function init() {
-      const userSnap = await getDoc(userRef);
-      const userData = userSnap.exists()
-        ? (userSnap.data() as { milestonesSeeded?: boolean })
-        : {};
-      const seededFlag = userData.milestonesSeeded ?? false;
+      try {
+        const userSnap = await getDoc(userRef);
+        const userData = userSnap.exists()
+          ? (userSnap.data() as { milestonesSeeded?: boolean })
+          : {};
+        const seededFlag = userData.milestonesSeeded ?? false;
 
-      const snap = await getDocs(milestonesRef);
+        const snap = await getDocs(milestonesRef);
 
-      if (snap.empty) {
-        console.log("🆕 No milestones found — seeding defaults");
-        const batch = writeBatch(db);
-        const now = new Date();
+        if (snap.empty) {
+          console.log("🆕 No milestones found — seeding defaults");
+          const batch = writeBatch(db);
+          const now = new Date();
 
-        DEFAULT_MILESTONES.forEach((m, i) => {
-          const start = new Date(now);
-          start.setDate(now.getDate() + i * 8);
-          const end = new Date(start);
-          end.setDate(start.getDate() + 7);
+          DEFAULT_MILESTONES.forEach((m, i) => {
+            const start = new Date(now);
+            start.setDate(now.getDate() + i * 8);
+            const end = new Date(start);
+            end.setDate(start.getDate() + 7);
 
-          const ref = doc(milestonesRef);
-          batch.set(ref, {
-            ...m,
-            startDate: Timestamp.fromDate(start),
-            endDate: Timestamp.fromDate(end),
+            const ref = doc(milestonesRef);
+            batch.set(ref, {
+              ...m,
+              startDate: Timestamp.fromDate(start),
+              endDate: Timestamp.fromDate(end),
+            });
           });
-        });
 
-        batch.update(userRef, { milestonesSeeded: true });
-        await batch.commit();
-      } else {
-        let needsUpdate = false;
-        const batch = writeBatch(db);
-
-        snap.docs.forEach((docSnap, i) => {
-          const data = docSnap.data();
-          const updates: Partial<Milestone> = {};
-
-          if (data.order == null) updates.order = i + 1;
-          if (!data.startDate) {
-            const start = new Date();
-            start.setDate(start.getDate() + i * 8);
-            updates.startDate = Timestamp.fromDate(start);
-          }
-          if (!data.endDate && updates.startDate) {
-            const end = new Date((updates.startDate as Timestamp).toDate());
-            end.setDate(end.getDate() + 7);
-            updates.endDate = Timestamp.fromDate(end);
-          }
-
-          if (Object.keys(updates).length > 0) {
-            needsUpdate = true;
-            batch.update(docSnap.ref, updates);
-          }
-        });
-
-        if (!seededFlag) {
           batch.update(userRef, { milestonesSeeded: true });
-        }
-
-        if (needsUpdate || !seededFlag) {
           await batch.commit();
+        } else {
+          let needsUpdate = false;
+          const batch = writeBatch(db);
+
+          snap.docs.forEach((docSnap, i) => {
+            const data = docSnap.data();
+            const updates: Partial<Milestone> = {};
+
+            if (data.order == null) updates.order = i + 1;
+            if (!data.startDate) {
+              const start = new Date();
+              start.setDate(start.getDate() + i * 8);
+              updates.startDate = Timestamp.fromDate(start);
+            }
+            if (!data.endDate && updates.startDate) {
+              const end = new Date((updates.startDate as Timestamp).toDate());
+              end.setDate(end.getDate() + 7);
+              updates.endDate = Timestamp.fromDate(end);
+            }
+
+            if (Object.keys(updates).length > 0) {
+              needsUpdate = true;
+              batch.update(docSnap.ref, updates);
+            }
+          });
+
+          if (!seededFlag) {
+            batch.update(userRef, { milestonesSeeded: true });
+          }
+
+          if (needsUpdate || !seededFlag) {
+            await batch.commit();
+          }
         }
-      }
 
-      const q = query(milestonesRef);
-      const unsub = onSnapshot(q, (snapshot) => {
-        setMilestones(snapshot.docs.map((d) => d.data()));
+        // 🔗 live updates
+        const q = query(milestonesRef);
+        unsub = onSnapshot(
+          q,
+          (snapshot) => {
+            setMilestones(snapshot.docs.map((d) => d.data()));
+            setLoading(false);
+          },
+          (err) => {
+            console.error("❌ Firestore listener error:", err);
+            setError(err);
+            setLoading(false);
+          }
+        );
+      } catch (err) {
+        console.error("❌ Failed to init milestones:", err);
+        setError(err as Error);
         setLoading(false);
-      });
-
-      return unsub;
+      }
     }
 
-    const unsubPromise = init();
+    init();
 
     return () => {
-      unsubPromise.then((unsub) => {
-        if (typeof unsub === "function") unsub();
-      });
+      if (unsub) unsub();
     };
   }, [user]);
 
-  return { milestones, loading };
+  return { milestones, loading, error };
 }

@@ -2,37 +2,43 @@
 
 import { ChecklistProgress } from "@/components/ChecklistProgress";
 import { ChecklistTasks } from "@/components/ChecklistTasks";
+import { MilestonesTimeline } from "@/components/MilestonesTimeline";
 import { useOnboardingChecklist } from "@/hooks/useOnboardingChecklist";
+import { useMilestones } from "@/hooks/useMilestones";
 
 export default function SmartOnboardingPage() {
   const {
     steps,
-    loading,
+    loading: checklistLoading,
     toggleStepComplete: toggleStep,
   } = useOnboardingChecklist();
 
-  if (loading) return <div>Loading...</div>;
+  const { milestones, loading: milestonesLoading } = useMilestones();
+
+  if (checklistLoading || milestonesLoading) return <div>Loading...</div>;
 
   const total = steps.length;
   const completed = steps.filter((s) => s.completed).length;
   const completionPercent =
     total > 0 ? Math.round((completed / total) * 100) : 0;
 
-  // Calculate phase index (0–4 for 5 phases)
   const currentPhaseIndex = Math.min(
     Math.floor((completionPercent / 100) * 5),
     4
   );
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-10 p-6">
+      {/* Firestore Milestones Timeline */}
+      <MilestonesTimeline milestones={milestones} />
+
       {/* Progress Bar */}
       <ChecklistProgress
         completionPercent={completionPercent}
         currentPhaseIndex={currentPhaseIndex}
       />
 
-      {/* Task List */}
+      {/* Checklist Tasks */}
       <ChecklistTasks steps={steps} onToggle={toggleStep} />
     </div>
   );
