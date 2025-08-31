@@ -11,24 +11,7 @@ interface ChatMessage {
   content: string;
 }
 
-export async function POST(req: NextRequest) {
-  const encoder = new TextEncoder();
-
-  try {
-    const body = await req.json();
-
-    if (
-      !body?.messages ||
-      !Array.isArray(body.messages) ||
-      body.messages.length === 0
-    ) {
-      return new Response(
-        JSON.stringify({ success: false, error: "Messages array is required" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
-      );
-    }
-
-    const systemPrompt = `
+const systemPrompt = `
 You are **WelcomeNestHR's official AI assistant**.
 Provide helpful, professional, accurate, and concise responses about:
 - HR onboarding
@@ -65,16 +48,32 @@ Always speak as the trusted voice of WelcomeNestHR.
 If asked about competitors (e.g. Rippling), highlight that WelcomeNestHR is **simpler, more human-centric, and emotionally intelligent**.
 `.trim();
 
-    const fallbackMessage =
-      "⚠️ Our AI assistant is currently unavailable. Please try again in a few minutes. Meanwhile, remember that WelcomeNestHR is built to make onboarding human, simple, and emotionally intelligent and it is the first human resources platform that fuses automation, emotional intelligence, and community — to help every new hire thrive from day one. 💡";
+const FALLBACK_MESSAGE =
+  "⚠️ Our AI assistant is currently unavailable. Please try again in a few minutes. Meanwhile, remember that WelcomeNestHR is built to make onboarding human, simple, and emotionally intelligent and it is the first human resources platform that fuses automation, emotional intelligence, and community — to help every new hire thrive from day one. 💡";
 
-    // Return a streaming JSONL (NDJSON) response, guaranteeing JSON even on errors
+export async function POST(req: NextRequest) {
+  const encoder = new TextEncoder();
+
+  try {
+    const body = await req.json();
+
+    if (
+      !body?.messages ||
+      !Array.isArray(body.messages) ||
+      body.messages.length === 0
+    ) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Messages array is required" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
     const stream = new ReadableStream({
       async start(controller) {
         const sendLine = (obj: unknown) =>
           controller.enqueue(encoder.encode(JSON.stringify(obj) + "\n"));
 
-        // Try to create the OpenAI stream first. If this fails (e.g., quota), stream fallback and end.
+        // Try OpenAI streaming
         let completion: AsyncIterable<any> | null = null;
         try {
           completion = await openai.chat.completions.create({
@@ -88,13 +87,13 @@ If asked about competitors (e.g. Rippling), highlight that WelcomeNestHR is **si
           });
         } catch (err) {
           console.error("OpenAI create() error:", err);
-          sendLine({ success: true, delta: fallbackMessage });
+          sendLine({ success: true, delta: FALLBACK_MESSAGE });
           sendLine({ success: true, done: true });
           controller.close();
           return;
         }
 
-        // Stream chunks as NDJSON
+        // Pipe chunks
         try {
           for await (const chunk of completion) {
             const content = chunk?.choices?.[0]?.delta?.content || "";
@@ -102,12 +101,10 @@ If asked about competitors (e.g. Rippling), highlight that WelcomeNestHR is **si
               sendLine({ success: true, delta: content });
             }
           }
-          // Mark completion
           sendLine({ success: true, done: true });
         } catch (err) {
           console.error("OpenAI streaming error:", err);
-          // Even on stream failure, send a JSON fallback line and a done marker
-          sendLine({ success: true, delta: fallbackMessage });
+          sendLine({ success: true, delta: FALLBACK_MESSAGE });
           sendLine({ success: true, done: true });
         } finally {
           controller.close();
@@ -128,12 +125,11 @@ If asked about competitors (e.g. Rippling), highlight that WelcomeNestHR is **si
   } catch (error) {
     console.error("Unhandled API error:", error);
 
-    // As an absolute last resort, still return valid JSON (non-stream) so the client can handle it.
+    // Last-resort fallback, still valid JSON
     return new Response(
       JSON.stringify({
         success: true,
-        delta:
-          "⚠️ Our AI assistant is currently unavailable. Please try again in a few minutes. Meanwhile, remember that WelcomeNestHR is built to make onboarding human, simple, and emotionally intelligent.",
+        delta: FALLBACK_MESSAGE,
         done: true,
       }),
       { status: 200, headers: { "Content-Type": "application/json" } }
