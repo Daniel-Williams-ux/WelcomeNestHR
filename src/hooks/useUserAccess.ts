@@ -1,14 +1,15 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { onAuthStateChanged, User } from "firebase/auth";
-import { doc, getDoc, Timestamp } from "firebase/firestore";
-import { auth, db } from "@/lib/firebase";
+import { useEffect, useState } from 'react';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { doc, getDoc, Timestamp } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase';
 
 type AccessState = {
   user: User | null;
   loading: boolean;
-  plan: "free" | "trial" | "platinum" | null;
+  plan: 'free' | 'trial' | 'platinum' | null;
+  role: 'superadmin' | 'hr' | 'employee' | null; // 👈 added
   isTrialExpired: boolean;
   canAccessPremium: boolean;
   trialDaysLeft: number | null;
@@ -17,7 +18,10 @@ type AccessState = {
 
 export function useUserAccess(): AccessState {
   const [user, setUser] = useState<User | null>(null);
-  const [plan, setPlan] = useState<"free" | "trial" | "platinum" | null>(null);
+  const [plan, setPlan] = useState<'free' | 'trial' | 'platinum' | null>(null);
+  const [role, setRole] = useState<'superadmin' | 'hr' | 'employee' | null>(
+    null
+  ); // 👈 new
   const [isTrialExpired, setIsTrialExpired] = useState(false);
   const [trialDaysLeft, setTrialDaysLeft] = useState<number | null>(null);
   const [trialEndsAt, setTrialEndsAt] = useState<Date | null>(null);
@@ -28,7 +32,7 @@ export function useUserAccess(): AccessState {
 
     const timeout = setTimeout(() => {
       if (isMounted) {
-        console.warn("⏳ Auth timeout: fallback to unauthenticated state.");
+        console.warn('⏳ Auth timeout: fallback to unauthenticated state.');
         setLoading(false);
       }
     }, 10000);
@@ -40,12 +44,16 @@ export function useUserAccess(): AccessState {
 
       if (firebaseUser) {
         try {
-          const userRef = doc(db, "users", firebaseUser.uid);
+          const userRef = doc(db, 'users', firebaseUser.uid);
           const userSnap = await getDoc(userRef);
 
           if (userSnap.exists()) {
             const data = userSnap.data();
-            const userPlan = data.plan || "free";
+            const userPlan = data.plan || 'free';
+            const userRole = data.role || 'employee'; // 👈 default role
+
+            setRole(userRole);
+            setPlan(userPlan);
 
             // ✅ Convert Firestore trialEndsAt to JS Date
             let endsAt: Date | null = null;
@@ -53,14 +61,13 @@ export function useUserAccess(): AccessState {
               endsAt = data.trialEndsAt.toDate();
             } else if (data.trialEndsAt instanceof Date) {
               endsAt = data.trialEndsAt;
-            } else if (typeof data.trialEndsAt === "string") {
+            } else if (typeof data.trialEndsAt === 'string') {
               const parsed = new Date(data.trialEndsAt);
               if (!isNaN(parsed.getTime())) {
                 endsAt = parsed;
               }
             }
 
-            setPlan(userPlan);
             setTrialEndsAt(endsAt);
 
             if (endsAt instanceof Date && !isNaN(endsAt.getTime())) {
@@ -75,35 +82,26 @@ export function useUserAccess(): AccessState {
                 )
               );
               setTrialDaysLeft(daysLeft);
-
-              console.log("📆 Trial ends at:", endsAt.toISOString());
-              console.log("📊 Trial expired?", expired);
-              console.log("🧮 Trial days left:", daysLeft);
             } else {
-              console.log("⛔ No valid trial end date found.");
               setIsTrialExpired(false);
               setTrialDaysLeft(null);
             }
           } else {
-            console.warn("⚠️ No user document found in Firestore.");
-            setPlan("free");
+            console.warn('⚠️ No user document found in Firestore.');
+            setPlan('free');
+            setRole('employee');
             setIsTrialExpired(false);
             setTrialDaysLeft(null);
             setTrialEndsAt(null);
           }
         } catch (error) {
-          console.error("🔥 Error fetching user document:", error);
+          console.error('🔥 Error fetching user document:', error);
           setPlan(null);
-          setIsTrialExpired(false);
-          setTrialDaysLeft(null);
-          setTrialEndsAt(null);
+          setRole(null);
         }
       } else {
-        console.warn("⚠️ No Firebase user detected.");
         setPlan(null);
-        setIsTrialExpired(false);
-        setTrialDaysLeft(null);
-        setTrialEndsAt(null);
+        setRole(null);
       }
 
       clearTimeout(timeout);
@@ -118,21 +116,13 @@ export function useUserAccess(): AccessState {
   }, []);
 
   const canAccessPremium =
-    plan === "platinum" || (plan === "trial" && !isTrialExpired);
-
-  console.log("👤 Access hook state:", {
-    user,
-    loading,
-    plan,
-    isTrialExpired,
-    trialDaysLeft,
-    trialEndsAt,
-  });
+    plan === 'platinum' || (plan === 'trial' && !isTrialExpired);
 
   return {
     user,
     loading,
     plan,
+    role, // 👈 returned role
     isTrialExpired,
     canAccessPremium,
     trialDaysLeft,
