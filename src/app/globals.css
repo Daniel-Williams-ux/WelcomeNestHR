@@ -118,3 +118,10 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Hide global navbar/footer in superadmin mode */
+body.superadmin-mode header,
+body.superadmin-mode nav,
+body.superadmin-mode footer {
+  display: none !important;
+}
