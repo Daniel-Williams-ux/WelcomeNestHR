@@ -1,3 +1,4 @@
+// src/components/ui/use-toast.ts
 export const toast = ({
   title,
   description,
@@ -5,5 +6,6 @@ export const toast = ({
   title: string;
   description?: string;
 }) => {
+  // Simple fallback toast — replace with your fancier UI toast later.
   alert(`${title}${description ? '\n' + description : ''}`);
 };

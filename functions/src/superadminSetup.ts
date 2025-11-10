@@ -4,7 +4,7 @@ import * as admin from 'firebase-admin';
 admin.initializeApp();
 
 /**
- * ✅ Automatically assign `superadmin` to the very first registered user.
+ *  Automatically assign `superadmin` to the very first registered user.
  */
 export const assignFirstSuperadmin = functions.auth
   .user()
@@ -23,7 +23,7 @@ export const assignFirstSuperadmin = functions.auth
   });
 
 /**
- * ✅ Secure function to add another superadmin manually
+ *  Secure function to add another superadmin manually
  * Only existing superadmins can use it.
  */
 export const addSuperadmin = functions.https.onCall(async (data, context) => {
