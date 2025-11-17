@@ -2,8 +2,6 @@
 
 import { useParams, useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { useAuth } from '@/hooks/useAuth';
-import { useEmployees } from '@/hooks/useEmployees';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -11,14 +9,18 @@ import { Label } from '@/components/ui/label';
 import { motion } from 'framer-motion';
 import { toast } from '@/components/ui/use-toast';
 import { db } from '@/lib/firebase';
-import { doc, updateDoc, increment, serverTimestamp } from 'firebase/firestore';
+import {
+  doc,
+  collection,
+  addDoc,
+  updateDoc,
+  increment,
+  serverTimestamp,
+} from 'firebase/firestore';
 
 export default function AddEmployeePage() {
   const router = useRouter();
   const { companyId } = useParams();
-  const { user } = useAuth();
-  const { addEmployee } = useEmployees(user?.uid, companyId as string);
-
   const [formData, setFormData] = useState({
     name: '',
     title: '',
@@ -27,7 +29,6 @@ export default function AddEmployeePage() {
     status: 'Active',
     startDate: '',
   });
-
   const [loading, setLoading] = useState(false);
 
   const handleChange = (
@@ -36,26 +37,30 @@ export default function AddEmployeePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user?.uid) {
-      toast({ title: 'You must be signed in.' });
+    if (!companyId) {
+      toast({ title: 'Company not found' });
       return;
     }
 
     setLoading(true);
     try {
+      // ✅ Prepare employee data
       const payload = {
         ...formData,
         startDate: formData.startDate
           ? new Date(formData.startDate).toISOString()
           : '',
-        endDate: formData.status === 'Exited' ? new Date().toISOString() : null, // ✅ Auto-set endDate
+        endDate: formData.status === 'Exited' ? new Date().toISOString() : null,
         createdAt: serverTimestamp(),
       };
 
-      await addEmployee(payload);
+      // ✅ Add new employee under companies/{companyId}/employees
+      const companyRef = doc(db, 'companies', companyId as string);
+      const employeesRef = collection(companyRef, 'employees');
+      await addDoc(employeesRef, payload);
 
-      // ✅ Increment company employee count
-      await updateDoc(doc(db, 'companies', companyId as string), {
+      // ✅ Increment employee count in company doc
+      await updateDoc(companyRef, {
         employeeCount: increment(1),
       });
 
