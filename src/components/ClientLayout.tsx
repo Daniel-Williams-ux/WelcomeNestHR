@@ -11,9 +11,11 @@ export default function ClientLayout({
 }) {
   const pathname = usePathname();
 
-  // Hide NavigationBar and Footer on dashboard and superadmin routes
+  // Hide NavigationBar and Footer on ALL dashboard routes:
   const hideLayout =
-    pathname.startsWith('/dashboard') || pathname.startsWith('/superadmin');
+    pathname.startsWith('/dashboard') ||
+    pathname.startsWith('/superadmin') ||
+    pathname.startsWith('/hr'); // 👈 NEW
 
   return (
     <>

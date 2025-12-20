@@ -1,17 +1,16 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Formik, Form, Field, ErrorMessage } from "formik";
-import * as Yup from "yup";
+import { useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Formik, Form, Field, ErrorMessage } from 'formik';
+import * as Yup from 'yup';
 import {
   GoogleAuthProvider,
   signInWithPopup,
   createUserWithEmailAndPassword,
   updateProfile,
-  onAuthStateChanged,
-} from "firebase/auth";
-import { auth, db } from "@/lib/firebase";
+} from 'firebase/auth';
+import { auth, db } from '@/lib/firebase';
 import {
   doc,
   setDoc,
@@ -19,49 +18,48 @@ import {
   collection,
   getDocs,
   serverTimestamp,
-} from "firebase/firestore";
-import { EyeIcon, EyeOffIcon } from "lucide-react";
-import Image from "next/image";
+} from 'firebase/firestore';
+import { EyeIcon, EyeOffIcon } from 'lucide-react';
+import Image from 'next/image';
 
-/** Wait until Firebase Auth is fully ready (fresh ID token) */
+/** Wait until Firebase Auth is fully ready */
 async function waitForAuthReady(): Promise<void> {
   return new Promise((resolve, reject) => {
-    const unsub = onAuthStateChanged(
-      auth,
-      async (u) => {
+    const unsub = auth.onAuthStateChanged(
+      (u) => {
         if (!u) return;
-        try {
-          await u.getIdToken(true); // force refresh token
-          unsub();
-          resolve();
-        } catch (err) {
-          unsub();
-          reject(err);
-        }
+        u.getIdToken(true)
+          .then(() => {
+            unsub();
+            resolve();
+          })
+          .catch((err) => {
+            unsub();
+            reject(err);
+          });
       },
       (err) => reject(err)
     );
   });
 }
 
-/** Clone onboarding template tasks */
+/** Clone onboarding tasks */
 async function cloneOnboardingTemplate(userId: string) {
-  const templateRef = collection(db, "onboardingTemplates");
+  const templateRef = collection(db, 'onboardingTemplates');
   const snapshot = await getDocs(templateRef);
 
   const promises = snapshot.docs.map((docSnap) =>
     setDoc(doc(db, `users/${userId}/onboarding`, docSnap.id), {
       ...docSnap.data(),
-      status: "pending",
+      status: 'pending',
       createdAt: new Date().toISOString(),
     })
   );
 
   await Promise.all(promises);
 
-  // Mark milestones as seeded
   await setDoc(
-    doc(db, "users", userId),
+    doc(db, 'users', userId),
     { milestonesSeeded: true },
     { merge: true }
   );
@@ -70,11 +68,14 @@ async function cloneOnboardingTemplate(userId: string) {
 export default function SignupPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const orgId = searchParams.get("orgId") || null;
+
+  /** --- INVITE PARAMETERS --- */
+  const companyId = searchParams.get('companyId') || null;
+  const inviteRole = searchParams.get('role') || 'employee'; // <— FIXED!
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [firebaseError, setFirebaseError] = useState("");
+  const [firebaseError, setFirebaseError] = useState('');
 
   const togglePasswordVisibility = () => setShowPassword((p) => !p);
   const toggleConfirmPasswordVisibility = () =>
@@ -84,17 +85,43 @@ export default function SignupPage() {
   const getDefaultUserData = (user: any, fullName: string | null = null) => ({
     uid: user.uid,
     email: user.email,
-    fullName: fullName || user.displayName || "",
-    plan: "trial",
-    trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 14 days trial
+    fullName: fullName || user.displayName || '',
+    plan: 'trial',
+    trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
     milestonesSeeded: false,
     createdAt: new Date().toISOString(),
-    orgId,
+
+    /** --- FIXED --- */
+    companyId,
+    role: companyId ? inviteRole : 'unassigned',
   });
 
-  /** Google Signup */
+  /** Validate company exists */
+  const ensureCompanyExists = async (id: string | null) => {
+    if (!id) return false;
+    try {
+      const compRef = doc(db, 'companies', id);
+      const compSnap = await getDoc(compRef);
+      return compSnap.exists();
+    } catch {
+      return false;
+    }
+  };
+
+  /** Google signup */
   const handleGoogleSignup = async () => {
-    setFirebaseError("");
+    setFirebaseError('');
+
+    if (!companyId) {
+      setFirebaseError('You must use a company invitation link.');
+      return;
+    }
+
+    if (!(await ensureCompanyExists(companyId))) {
+      setFirebaseError('Invalid company invitation link.');
+      return;
+    }
+
     try {
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
@@ -102,46 +129,47 @@ export default function SignupPage() {
 
       await waitForAuthReady();
 
-      const userRef = doc(db, "users", user.uid);
-      const docSnap = await getDoc(userRef);
+      const userRef = doc(db, 'users', user.uid);
+      const userSnap = await getDoc(userRef);
 
-      if (!docSnap.exists()) {
-        await setDoc(userRef, getDefaultUserData(user));
+      if (!userSnap.exists()) {
+        await setDoc(userRef, getDefaultUserData(user, user.displayName));
 
-        await setDoc(doc(db, "customers", user.uid), {
+        await setDoc(doc(db, 'customers', user.uid), {
           email: user.email,
-          name: user.displayName || "",
-          stripeCustomerId: "",
-          plan: "trial",
+          name: user.displayName || '',
+          stripeCustomerId: '',
+          plan: 'trial',
           createdAt: serverTimestamp(),
         });
 
         await cloneOnboardingTemplate(user.uid);
       }
 
-      router.push("/dashboard");
+      router.push('/route-router');
     } catch (err) {
       console.error(err);
-      setFirebaseError("Google sign-up failed. Please try again.");
+      setFirebaseError('Google sign-up failed. Please try again.');
     }
   };
 
+  /** Validation schema */
   const SignupSchema = Yup.object().shape({
-    fullName: Yup.string().required("Full name is required"),
-    email: Yup.string().email("Invalid email").required("Email is required"),
+    fullName: Yup.string().required('Full name is required'),
+    email: Yup.string().email('Invalid email').required('Email required'),
     password: Yup.string()
-      .min(8, "At least 8 characters")
-      .matches(/[A-Z]/, "Uppercase letter required")
-      .matches(/[a-z]/, "Lowercase letter required")
-      .matches(/[0-9]/, "Number required")
-      .matches(/[^a-zA-Z0-9]/, "Symbol required")
-      .required("Password is required"),
+      .min(8, 'At least 8 characters')
+      .matches(/[A-Z]/, 'Uppercase letter required')
+      .matches(/[a-z]/, 'Lowercase letter required')
+      .matches(/[0-9]/, 'Number required')
+      .matches(/[^a-zA-Z0-9]/, 'Symbol required')
+      .required('Password is required'),
     confirmPassword: Yup.string()
-      .oneOf([Yup.ref("password")], "Passwords must match")
-      .required("Confirm your password"),
+      .oneOf([Yup.ref('password')], 'Passwords must match')
+      .required('Confirm your password'),
     acceptedTerms: Yup.boolean().oneOf(
       [true],
-      "Please accept terms and privacy policy"
+      'Please accept terms and privacy policy'
     ),
   });
 
@@ -160,21 +188,31 @@ export default function SignupPage() {
         <h2 className="text-3xl font-bold text-center text-[#004d59] dark:text-white">
           Welcome Home 👋
         </h2>
-        <p className="text-center text-sm text-gray-600 dark:text-gray-400">
-          Let&apos;s help you land smoothly — wherever you&apos;re headed.
-        </p>
 
         <Formik
           initialValues={{
-            fullName: "",
-            email: "",
-            password: "",
-            confirmPassword: "",
+            fullName: '',
+            email: '',
+            password: '',
+            confirmPassword: '',
             acceptedTerms: false,
           }}
           validationSchema={SignupSchema}
           onSubmit={async (values, { setSubmitting }) => {
-            setFirebaseError("");
+            setFirebaseError('');
+
+            if (!companyId) {
+              setFirebaseError('You must use your company invitation link.');
+              setSubmitting(false);
+              return;
+            }
+
+            if (!(await ensureCompanyExists(companyId))) {
+              setFirebaseError('Invalid company invitation link.');
+              setSubmitting(false);
+              return;
+            }
+
             try {
               const userCredential = await createUserWithEmailAndPassword(
                 auth,
@@ -187,74 +225,75 @@ export default function SignupPage() {
               await waitForAuthReady();
 
               await setDoc(
-                doc(db, "users", user.uid),
+                doc(db, 'users', user.uid),
                 getDefaultUserData(user, values.fullName)
               );
 
-              await setDoc(doc(db, "customers", user.uid), {
+              await setDoc(doc(db, 'customers', user.uid), {
                 email: user.email,
                 name: values.fullName,
-                stripeCustomerId: "",
-                plan: "trial",
+                stripeCustomerId: '',
+                plan: 'trial',
                 createdAt: serverTimestamp(),
               });
 
               await cloneOnboardingTemplate(user.uid);
 
-              router.push("/dashboard");
+              router.push('/route-router');
             } catch (err) {
               console.error(err);
               setFirebaseError(
-                "Account creation failed. Try a different email."
+                'Account creation failed. Try a different email.'
               );
             }
+
             setSubmitting(false);
           }}
         >
           {({ isSubmitting }) => (
             <Form className="space-y-4">
-              {/* Full Name */}
+              {/* FULL NAME */}
               <div>
                 <Field
                   name="fullName"
                   type="text"
                   placeholder="Full name"
-                  className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-[#273c42] text-gray-800 dark:text-white focus:ring-2 focus:ring-[#00ACC1] focus:outline-none"
+                  className="w-full px-4 py-2 rounded-lg border border-gray-300"
                 />
                 <ErrorMessage
                   name="fullName"
                   component="div"
-                  className="text-sm text-red-600 dark:text-red-400 mt-1"
+                  className="text-sm text-red-600"
                 />
               </div>
 
-              {/* Email */}
+              {/* EMAIL */}
               <div>
                 <Field
                   name="email"
                   type="email"
-                  placeholder="Email address"
-                  className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-[#273c42] text-gray-800 dark:text-white focus:ring-2 focus:ring-[#00ACC1] focus:outline-none"
+                  placeholder="Email"
+                  className="w-full px-4 py-2 rounded-lg border border-gray-300"
                 />
                 <ErrorMessage
                   name="email"
                   component="div"
-                  className="text-sm text-red-600 dark:text-red-400 mt-1"
+                  className="text-sm text-red-600"
                 />
               </div>
 
-              {/* Password */}
+              {/* PASSWORD */}
               <div className="relative">
                 <Field
                   name="password"
-                  type={showPassword ? "text" : "password"}
+                  type={showPassword ? 'text' : 'password'}
                   placeholder="Password"
-                  className="w-full px-4 py-2 pr-10 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-[#273c42] text-gray-800 dark:text-white focus:ring-2 focus:ring-[#00ACC1] focus:outline-none"
+                  className="w-full px-4 py-2 pr-10 rounded-lg border border-gray-300"
                 />
                 <button
                   type="button"
                   onClick={togglePasswordVisibility}
-                  className="absolute top-2 right-3 text-gray-500 dark:text-gray-300"
+                  className="absolute top-2 right-3"
                 >
                   {showPassword ? (
                     <EyeOffIcon size={18} />
@@ -265,22 +304,22 @@ export default function SignupPage() {
                 <ErrorMessage
                   name="password"
                   component="div"
-                  className="text-sm text-red-600 dark:text-red-400 mt-1"
+                  className="text-sm text-red-600"
                 />
               </div>
 
-              {/* Confirm Password */}
+              {/* CONFIRM PASSWORD */}
               <div className="relative">
                 <Field
                   name="confirmPassword"
-                  type={showConfirmPassword ? "text" : "password"}
+                  type={showConfirmPassword ? 'text' : 'password'}
                   placeholder="Confirm password"
-                  className="w-full px-4 py-2 pr-10 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-[#273c42] text-gray-800 dark:text-white focus:ring-2 focus:ring-[#00ACC1] focus:outline-none"
+                  className="w-full px-4 py-2 pr-10 rounded-lg border border-gray-300"
                 />
                 <button
                   type="button"
                   onClick={toggleConfirmPasswordVisibility}
-                  className="absolute top-2 right-3 text-gray-500 dark:text-gray-300"
+                  className="absolute top-2 right-3"
                 >
                   {showConfirmPassword ? (
                     <EyeOffIcon size={18} />
@@ -291,77 +330,50 @@ export default function SignupPage() {
                 <ErrorMessage
                   name="confirmPassword"
                   component="div"
-                  className="text-sm text-red-600 dark:text-red-400 mt-1"
+                  className="text-sm text-red-600"
                 />
               </div>
 
-              {/* Terms */}
+              {/* TERMS */}
               <div className="flex items-center gap-2 text-sm">
                 <Field type="checkbox" name="acceptedTerms" />
-                <label
-                  htmlFor="acceptedTerms"
-                  className="text-gray-700 dark:text-gray-300"
-                >
-                  I agree to the{" "}
-                  <a href="/terms" className="underline text-[#00ACC1]">
-                    Terms
-                  </a>{" "}
-                  and{" "}
-                  <a href="/privacy" className="underline text-[#00ACC1]">
-                    Privacy Policy
-                  </a>
+                <label htmlFor="acceptedTerms">
+                  I agree to the Terms & Privacy Policy
                 </label>
               </div>
-              <ErrorMessage
-                name="acceptedTerms"
-                component="div"
-                className="text-sm text-red-600 dark:text-red-400"
-              />
 
               {firebaseError && (
-                <div className="text-sm text-red-600 dark:text-red-400">
-                  {firebaseError}
-                </div>
+                <div className="text-sm text-red-600">{firebaseError}</div>
               )}
 
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full bg-[#00ACC1] hover:bg-[#0097a7] text-white font-semibold py-2 rounded-lg transition"
+                className="w-full bg-[#00ACC1] text-white py-2 rounded-lg"
               >
-                {isSubmitting ? "Creating account..." : "Create Account"}
+                {isSubmitting ? 'Creating account…' : 'Create Account'}
               </button>
             </Form>
           )}
         </Formik>
 
-        {/* Divider */}
         <div className="flex items-center gap-3">
-          <div className="h-px flex-1 bg-gray-300 dark:bg-gray-600" />
-          <span className="text-xs text-gray-500 dark:text-gray-400">
-            or continue with
-          </span>
-          <div className="h-px flex-1 bg-gray-300 dark:bg-gray-600" />
+          <div className="h-px flex-1 bg-gray-300" />
+          <span className="text-xs text-gray-500">or continue with</span>
+          <div className="h-px flex-1 bg-gray-300" />
         </div>
 
-        {/* Google Signup */}
         <button
           onClick={handleGoogleSignup}
-          className="w-full border border-gray-300 dark:border-gray-600 flex items-center justify-center gap-3 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+          className="w-full border border-gray-300 flex items-center justify-center gap-3 py-2 rounded-lg"
         >
           <Image src="/google-logo.svg" alt="Google" width={20} height={20} />
-          <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
-            Continue with Google
-          </span>
+          Continue with Google
         </button>
 
-        {/* Link to Login */}
-        <p className="text-center text-sm text-gray-600 dark:text-gray-400">
-          Already have an account?{" "}
-          <a
-            href="/login"
-            className="text-[#00ACC1] hover:text-[#0097a7] font-medium"
-          >
+        <p className="text-center text-sm mt-2">
+          Already have an account?{' '}
+          <a href="/login" className="text-[#00ACC1] font-medium">
             Sign in
           </a>
         </p>

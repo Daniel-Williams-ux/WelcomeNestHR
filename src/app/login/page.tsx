@@ -50,7 +50,7 @@ export default function LoginPage() {
       );
 
       await checkAndSeedUser(userCredential.user.uid);
-      router.push("/dashboard");
+      router.push('/route-router');
     } catch (err) {
       const error = err as FirebaseError;
       setError(error.message || "Login failed. Please try again.");
@@ -69,7 +69,7 @@ export default function LoginPage() {
       const result = await signInWithPopup(auth, provider);
 
       await checkAndSeedUser(result.user.uid);
-      router.push("/dashboard");
+      router.push('/route-router');
     } catch (err) {
       const error = err as FirebaseError;
       setError(error.message || "Google sign-in failed.");

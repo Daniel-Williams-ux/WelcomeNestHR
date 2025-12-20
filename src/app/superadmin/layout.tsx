@@ -21,7 +21,7 @@ export default function SuperAdminLayout({
         />
 
         <div className="flex-1 flex flex-col transition-all duration-300 md:ml-64">
-          {/* Mobile menu button (visible only when sidebar closed) */}
+          {/* Mobile menu button (visible only on small screens) */}
           <div className="md:hidden flex items-center justify-between px-4 py-3 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 shadow-sm">
             <h1 className="text-lg font-semibold">Admin Dashboard</h1>
             <button

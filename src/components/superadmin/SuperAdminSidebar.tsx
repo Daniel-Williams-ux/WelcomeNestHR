@@ -10,7 +10,6 @@ import {
   CreditCard,
   Settings,
   X,
-  Menu,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
@@ -26,7 +25,7 @@ export default function SuperAdminSidebar({
   const [isDesktop, setIsDesktop] = useState(false);
 
   useEffect(() => {
-    const onResize = () => setIsDesktop(window.innerWidth >= 1024); // ⬅️ slightly higher breakpoint
+    const onResize = () => setIsDesktop(window.innerWidth >= 1024);
     onResize();
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
@@ -39,6 +38,8 @@ export default function SuperAdminSidebar({
     { name: 'Billing', href: '/superadmin/billing', icon: CreditCard },
     { name: 'Usage', href: '/superadmin/usage', icon: BarChart3 },
     { name: 'Settings', href: '/superadmin/settings', icon: Settings },
+    // add Payroll link if you create /superadmin/payroll
+    { name: 'Payroll', href: '/superadmin/payroll', icon: BarChart3 },
   ];
 
   const NavLink = ({
@@ -96,15 +97,7 @@ export default function SuperAdminSidebar({
   // ---------- MOBILE ----------
   return (
     <>
-      {/* top header (mobile only) */}
-      <header className="lg:hidden flex items-center justify-between px-4 py-3 bg-gradient-to-r from-[#FFB300] to-[#FB8C00] text-white shadow-lg sticky top-0 z-40">
-        <div className="font-semibold tracking-wide">WelcomeNestHR</div>
-        <button onClick={() => setSidebarOpen(true)} aria-label="Open menu">
-          <Menu size={22} />
-        </button>
-      </header>
-
-      {/* dark backdrop */}
+      {/* backdrop (only when open) */}
       {sidebarOpen && (
         <div
           className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden"
@@ -112,15 +105,16 @@ export default function SuperAdminSidebar({
         />
       )}
 
-      {/* mobile sidebar */}
+      {/* mobile sidebar (slide-in) */}
       <motion.aside
         initial={{ x: '-100%' }}
         animate={{ x: sidebarOpen ? 0 : '-100%' }}
         transition={{ duration: 0.25, ease: 'easeInOut' }}
-        className="fixed inset-y-0 left-0 z-50 w-72 flex flex-col
+        className={`fixed inset-y-0 left-0 z-50 w-72 flex flex-col
                    bg-gradient-to-b from-[#FFB300] to-[#FB8C00]
                    dark:from-[#FB8C00] dark:to-[#FFB300]
-                   text-white shadow-2xl lg:hidden rounded-r-2xl"
+                   text-white shadow-2xl lg:hidden rounded-r-2xl`}
+        aria-hidden={!sidebarOpen}
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/20">
           <div className="font-semibold text-base">WelcomeNestHR</div>

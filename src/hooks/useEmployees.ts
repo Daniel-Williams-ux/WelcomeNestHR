@@ -1,5 +1,5 @@
 // src/hooks/useEmployees.ts
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { db } from '@/lib/firebase';
 import {
   collection,
@@ -15,7 +15,6 @@ import {
   addDoc,
   updateDoc,
   doc,
-  deleteDoc,
   increment,
   getCountFromServer,
 } from 'firebase/firestore';
@@ -23,11 +22,11 @@ import {
 export interface Employee {
   id: string;
   name: string;
-  title: string;
-  department: string;
-  email: string;
-  status: 'Active' | 'On Leave' | 'Exited' | string;
-  startDate: string;
+  title?: string;
+  department?: string;
+  email?: string;
+  status?: 'Active' | 'On Leave' | 'Exited' | string;
+  startDate?: string;
   endDate?: string | null;
   createdAt?: unknown;
   deletedAt?: unknown;
@@ -37,7 +36,7 @@ type SortOption = { field: 'createdAt' | 'name'; direction: 'asc' | 'desc' };
 
 export function useEmployees(companyId?: string, pageSize = 10) {
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   const [page, setPage] = useState(1);
@@ -60,55 +59,72 @@ export function useEmployees(companyId?: string, pageSize = 10) {
 
   const [totalEmployees, setTotalEmployees] = useState<number | null>(null);
 
+  // --- Helper: validate companyId (treat "null"/"undefined"/empty as invalid)
+  const isValidCompany = !!(
+    companyId &&
+    typeof companyId === 'string' &&
+    companyId.trim().length > 0 &&
+    companyId.trim().toLowerCase() !== 'null' &&
+    companyId.trim().toLowerCase() !== 'undefined'
+  );
+
   // -------------------------
   // Query builder for listing
   // -------------------------
-  const buildListQuery = (
-    cursor?: QueryDocumentSnapshot<DocumentData> | null,
-    customLimit?: number
-  ) => {
-    if (!companyId) throw new Error('Missing companyId');
-    const collRef = collection(db, 'companies', companyId, 'employees');
+  const buildListQuery = useCallback(
+    (
+      cursor?: QueryDocumentSnapshot<DocumentData> | null,
+      customLimit?: number
+    ) => {
+      if (!isValidCompany) return null;
+      const collRef = collection(db, 'companies', companyId!, 'employees');
+      const limitVal = customLimit ?? pageSize;
 
-    const limitVal = customLimit ?? pageSize;
+      // Search by name prefix
+      if (searchName.trim().length > 0) {
+        const s = searchName.trim();
+        let qRef = query(
+          collRef,
+          where('name', '>=', s),
+          where('name', '<=', s + '\uf8ff'),
+          orderBy('name', 'asc'),
+          limit(limitVal)
+        );
+        if (cursor) qRef = query(qRef, startAfter(cursor));
+        return qRef;
+      }
 
-    // Search by name prefix
-    if (searchName.trim().length > 0) {
-      const s = searchName.trim();
+      const filters: any[] = [];
+      if (statusFilter) filters.push(where('status', '==', statusFilter));
+      if (departmentFilter)
+        filters.push(where('department', '==', departmentFilter));
+
       let qRef = query(
         collRef,
-        where('name', '>=', s),
-        where('name', '<=', s + '\uf8ff'),
-        orderBy('name', 'asc'),
+        ...filters,
+        orderBy(sortOption.field, sortOption.direction),
         limit(limitVal)
       );
       if (cursor) qRef = query(qRef, startAfter(cursor));
       return qRef;
-    }
-
-    const filters: any[] = [];
-    if (statusFilter) filters.push(where('status', '==', statusFilter));
-    if (departmentFilter)
-      filters.push(where('department', '==', departmentFilter));
-
-    let qRef = query(
-      collRef,
-      ...filters,
-      orderBy(sortOption.field, sortOption.direction),
-      limit(limitVal)
-    );
-
-    if (cursor) qRef = query(qRef, startAfter(cursor));
-    return qRef;
-  };
+    },
+    [
+      companyId,
+      pageSize,
+      searchName,
+      statusFilter,
+      departmentFilter,
+      sortOption,
+      isValidCompany,
+    ]
+  );
 
   // -------------------------
   // Query builder for full export or counts
   // -------------------------
-  const buildFullQuery = () => {
-    if (!companyId) throw new Error('Missing companyId');
-
-    const collRef = collection(db, 'companies', companyId, 'employees');
+  const buildFullQuery = useCallback(() => {
+    if (!isValidCompany) return null;
+    const collRef = collection(db, 'companies', companyId!, 'employees');
 
     if (searchName.trim().length > 0) {
       const s = searchName.trim();
@@ -130,65 +146,93 @@ export function useEmployees(companyId?: string, pageSize = 10) {
       ...filters,
       orderBy(sortOption.field, sortOption.direction)
     );
-  };
+  }, [companyId, searchName, statusFilter, departmentFilter, sortOption, isValidCompany]);
 
   // -------------------------
   // Count matching documents
   // -------------------------
-  const fetchCount = async () => {
-    if (!companyId) return;
+  const fetchCount = useCallback(async () => {
+    if (!isValidCompany) {
+      setTotalEmployees(null);
+      return;
+    }
 
     try {
       const q = buildFullQuery();
+      if (!q) {
+        setTotalEmployees(null);
+        return;
+      }
       const snap = await getCountFromServer(q);
       setTotalEmployees(snap.data().count ?? null);
-    } catch {
-      setTotalEmployees(null); // fallback
+    } catch (err) {
+      console.error('fetchCount error', err);
+      setTotalEmployees(null);
     }
-  };
+  }, [isValidCompany, buildFullQuery]);
 
   // -------------------------
   // Load a page
   // -------------------------
-  const loadPage = async (pageToLoad = 1) => {
-    if (!companyId) return;
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const cursor =
-        pageToLoad > 1 ? cursorsRef.current.get(pageToLoad - 1) : undefined;
-
-      const q = buildListQuery(cursor);
-      const snap = await getDocs(q);
-
-      const rows = snap.docs.map((d) => ({
-        id: d.id,
-        ...(d.data() as any),
-      })) as Employee[];
-
-      const filtered = rows.filter((r) => !r.deletedAt);
-
-      const lastVisible = snap.docs[snap.docs.length - 1] ?? null;
-      cursorsRef.current.set(pageToLoad, lastVisible);
-
-      setEmployees(filtered);
-      setPage(pageToLoad);
-      setHasPrev(pageToLoad > 1);
-
-      if (typeof totalEmployees === 'number') {
-        setHasNext(pageToLoad * pageSize < totalEmployees);
-      } else {
-        setHasNext(snap.docs.length === pageSize);
+  const loadPage = useCallback(
+    async (pageToLoad = 1) => {
+      // if no company yet, ensure UI shows neutral state
+      if (!isValidCompany) {
+        setEmployees([]);
+        setPage(1);
+        setHasNext(false);
+        setHasPrev(false);
+        setLoading(false);
+        setError(null);
+        return;
       }
-    } catch (err) {
-      console.error(err);
-      setError('Failed to load employees.');
-    } finally {
-      setLoading(false);
-    }
-  };
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        const cursor =
+          pageToLoad > 1 ? cursorsRef.current.get(pageToLoad - 1) : undefined;
+        const q = buildListQuery(cursor);
+        if (!q) {
+          // nothing to run
+          setEmployees([]);
+          setPage(1);
+          setHasNext(false);
+          setHasPrev(false);
+          setLoading(false);
+          return;
+        }
+
+        const snap = await getDocs(q);
+
+        const rows = snap.docs.map((d) => ({
+          id: d.id,
+          ...(d.data() as any),
+        })) as Employee[];
+        const filtered = rows.filter((r) => !r.deletedAt);
+
+        const lastVisible = snap.docs[snap.docs.length - 1] ?? null;
+        cursorsRef.current.set(pageToLoad, lastVisible);
+
+        setEmployees(filtered);
+        setPage(pageToLoad);
+        setHasPrev(pageToLoad > 1);
+
+        if (typeof totalEmployees === 'number') {
+          setHasNext(pageToLoad * pageSize < totalEmployees);
+        } else {
+          setHasNext(snap.docs.length === pageSize);
+        }
+      } catch (err) {
+        console.error('loadPage error', err);
+        setError('Failed to load employees.');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [isValidCompany, buildListQuery, pageSize, totalEmployees]
+  );
 
   // -------------------------
   // EXPORT HELPERS
@@ -204,7 +248,6 @@ export function useEmployees(companyId?: string, pageSize = 10) {
       'startDate',
       'endDate',
     ];
-
     const csv = [
       fields.join(','),
       ...rows.map((r) =>
@@ -213,12 +256,10 @@ export function useEmployees(companyId?: string, pageSize = 10) {
           .join(',')
       ),
     ].join('\n');
-
     return new Blob([csv], { type: 'text/csv;charset=utf-8' });
   };
 
-  // Simple export (current page only)
-  const exportCurrentPageCSV = () => {
+  const exportCurrentPageCSV = useCallback(() => {
     const blob = createCSVBlob(employees);
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -226,22 +267,25 @@ export function useEmployees(companyId?: string, pageSize = 10) {
     a.download = 'employees-current.csv';
     a.click();
     URL.revokeObjectURL(url);
-  };
+  }, [employees]);
 
-  // Export filtered (batched)
-  const exportFilteredEmployees = async () => {
-    if (!companyId) return;
+  const exportFilteredEmployees = useCallback(async () => {
+    if (!isValidCompany) {
+      setError('No company selected for export.');
+      return;
+    }
 
     setLoading(true);
     try {
       const rows: Employee[] = [];
       const batchSize = 500;
-
       let cursor: QueryDocumentSnapshot<DocumentData> | null | undefined =
         undefined;
 
       while (true) {
-        let q = query(buildFullQuery(), limit(batchSize));
+        const baseQ = buildFullQuery();
+        if (!baseQ) break;
+        let q = query(baseQ, limit(batchSize));
         if (cursor) q = query(q, startAfter(cursor));
 
         const snap = await getDocs(q);
@@ -263,26 +307,30 @@ export function useEmployees(companyId?: string, pageSize = 10) {
       a.download = 'employees-filtered.csv';
       a.click();
       URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('exportFilteredEmployees error', err);
+      setError('Export failed');
     } finally {
       setLoading(false);
     }
-  };
+  }, [isValidCompany, buildFullQuery]);
 
-  // Export all (ignores filters)
-  const exportAllEmployees = async () => {
-    if (!companyId) return;
+  const exportAllEmployees = useCallback(async () => {
+    if (!isValidCompany) {
+      setError('No company selected for export.');
+      return;
+    }
 
     setLoading(true);
     try {
       const rows: Employee[] = [];
       const batchSize = 500;
-
       let cursor: QueryDocumentSnapshot<DocumentData> | null | undefined =
         undefined;
 
       while (true) {
         let q = query(
-          collection(db, 'companies', companyId, 'employees'),
+          collection(db, 'companies', companyId!, 'employees'),
           orderBy('createdAt', 'desc'),
           limit(batchSize)
         );
@@ -297,7 +345,7 @@ export function useEmployees(companyId?: string, pageSize = 10) {
         });
 
         cursor = snap.docs[snap.docs.length - 1];
-        break;
+        if (snap.docs.length < batchSize) break;
       }
 
       const blob = createCSVBlob(rows);
@@ -307,60 +355,118 @@ export function useEmployees(companyId?: string, pageSize = 10) {
       a.download = 'employees-all.csv';
       a.click();
       URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('exportAllEmployees error', err);
+      setError('Export failed');
     } finally {
       setLoading(false);
     }
-  };
+  }, [isValidCompany, companyId]);
 
   // -------------------------
   // Add employee
   // -------------------------
-  const addEmployee = async (data: Omit<Employee, 'id'>) => {
-    if (!companyId) return;
-    const ref = collection(db, 'companies', companyId, 'employees');
+  const addEmployee = useCallback(
+    async (data: Omit<Employee, 'id'>) => {
+      if (!isValidCompany) {
+        throw new Error('No company selected.');
+      }
+      const ref = collection(db, 'companies', companyId!, 'employees');
 
-    const payload = {
-      ...data,
-      endDate: data.status === 'Exited' ? new Date().toISOString() : null,
-      createdAt: serverTimestamp(),
-      deletedAt: null,
-    };
+      const payload = {
+        ...data,
+        endDate: data.status === 'Exited' ? new Date().toISOString() : null,
+        createdAt: serverTimestamp(),
+        deletedAt: null,
+      };
 
-    const added = await addDoc(ref, payload);
+      try {
+        const added = await addDoc(ref, payload);
 
-    await updateDoc(doc(db, 'companies', companyId), {
-      employeeCount: increment(1),
-    });
+        // increment employeeCount on company doc if exists
+        try {
+          await updateDoc(doc(db, 'companies', companyId!), {
+            employeeCount: increment(1),
+          });
+        } catch (err) {
+          // non-fatal: log and continue
+          console.warn('Failed to increment employeeCount', err);
+        }
 
-    fetchCount().finally(() => loadPage(1));
+        // refresh counts and first page
+        fetchCount().finally(() => loadPage(1));
 
-    return added.id;
-  };
+        return added.id;
+      } catch (err) {
+        console.error('addEmployee error', err);
+        throw err;
+      }
+    },
+    [companyId, fetchCount, loadPage, isValidCompany]
+  );
 
   // -------------------------
   // Soft delete
   // -------------------------
-  const deleteEmployee = async (id: string) => {
-    if (!companyId) return;
+  const deleteEmployee = useCallback(
+    async (id: string) => {
+      if (!isValidCompany) {
+        throw new Error('No company selected.');
+      }
 
-    await updateDoc(doc(db, 'companies', companyId, 'employees', id), {
-      deletedAt: serverTimestamp(),
-    });
+      try {
+        await updateDoc(doc(db, 'companies', companyId!, 'employees', id), {
+          deletedAt: serverTimestamp(),
+        });
 
-    await updateDoc(doc(db, 'companies', companyId), {
-      employeeCount: increment(-1),
-    });
+        try {
+          await updateDoc(doc(db, 'companies', companyId!), {
+            employeeCount: increment(-1),
+          });
+        } catch (err) {
+          console.warn('Failed to decrement employeeCount', err);
+        }
 
-    fetchCount().finally(() => loadPage(page));
-  };
+        fetchCount().finally(() => loadPage(page));
+      } catch (err) {
+        console.error('deleteEmployee error', err);
+        throw err;
+      }
+    },
+    [companyId, fetchCount, loadPage, page, isValidCompany]
+  );
 
   // -------------------------
   // Lifecycle
   // -------------------------
   useEffect(() => {
+    // reset cursors whenever companyId or filters change
     cursorsRef.current = new Map();
     setPage(1);
-    fetchCount().finally(() => loadPage(1));
+
+    // If no valid company yet, clear data and don't try queries
+    if (!isValidCompany) {
+      setEmployees([]);
+      setTotalEmployees(null);
+      setHasNext(false);
+      setHasPrev(false);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
+    // load counts and page once company is available
+    setLoading(true);
+    fetchCount()
+      .catch((err) => {
+        console.error('initial fetchCount failed', err);
+      })
+      .finally(() => {
+        loadPage(1).catch((err) => {
+          console.error('initial loadPage failed', err);
+        });
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     companyId,
     statusFilter,
@@ -368,6 +474,7 @@ export function useEmployees(companyId?: string, pageSize = 10) {
     searchName,
     sortOption,
     pageSize,
+    isValidCompany,
   ]);
 
   return {
