@@ -16,7 +16,7 @@ import EditCompanyModal from '@/components/superadmin/EditCompanyModal';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/components/ui/use-toast';
 import { ArrowUpDown } from 'lucide-react';
-import { useRouter } from 'next/navigation'; // ✅ Added
+import { useRouter } from 'next/navigation'; //  Added
 
 interface Company {
   id: string;
@@ -67,7 +67,7 @@ export default function CompaniesPage() {
     return () => unsubscribe();
   }, []);
 
-  // ✅ Sorting Logic
+  //  Sorting Logic
   const sortedCompanies = [...companies].sort((a, b) => {
     if (!sortConfig) return 0;
     const { key, direction } = sortConfig;
@@ -104,141 +104,218 @@ export default function CompaniesPage() {
     }
   };
 
-  return (
-    <main className="p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Company Management</h1>
-        <Button
-          onClick={() => setModalOpen(true)}
-          className="bg-[#FB8C00] hover:bg-[#F57C00] text-white font-medium cursor-pointer transition"
-        >
-          Add Company
-        </Button>
-      </div>
+ return (
+   <main className="p-6 max-w-6xl mx-auto w-full">
+     <div className="flex items-center justify-between mb-6">
+       <h1 className="text-2xl font-bold text-gray-800">Company Management</h1>
+       <Button
+         onClick={() => setModalOpen(true)}
+         className="bg-[#FB8C00] hover:bg-[#F57C00] text-white font-medium cursor-pointer transition"
+       >
+         Add Company
+       </Button>
+     </div>
 
-      {/* Modals */}
-      <AddCompanyModal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        onAdded={() => setModalOpen(false)}
-      />
-      <EditCompanyModal
-        open={editModal.open}
-        onClose={() =>
-          setEditModal({ open: false, companyId: null, currentName: '' })
-        }
-        companyId={editModal.companyId || ''}
-        currentName={editModal.currentName}
-      />
+     {/* Modals */}
+     <AddCompanyModal
+       open={modalOpen}
+       onClose={() => setModalOpen(false)}
+       onAdded={() => setModalOpen(false)}
+     />
 
-      {/* Loading State */}
-      {loading ? (
-        <div className="space-y-3">
-          {[...Array(3)].map((_, i) => (
-            <Skeleton key={i} className="h-10 w-full rounded-md" />
-          ))}
-        </div>
-      ) : sortedCompanies.length === 0 ? (
-        <p className="text-gray-500 mt-8 text-center">
-          No companies added yet.
-        </p>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-full border border-gray-200 rounded-xl shadow-sm bg-white">
-            <thead className="bg-gray-100 text-gray-700 text-sm uppercase font-semibold">
-              <tr>
-                {[
-                  { label: 'Company Name', key: 'name' },
-                  { label: 'Plan', key: 'plan' },
-                  { label: 'Employees', key: 'employeeCount' },
-                  { label: 'Status', key: 'status' },
-                  { label: 'Created', key: 'createdAt' },
-                ].map((col) => (
-                  <th
-                    key={col.key}
-                    onClick={() => requestSort(col.key as keyof Company)}
-                    className="py-3 px-4 text-left cursor-pointer hover:text-[#00ACC1] transition"
-                  >
-                    <div className="flex items-center gap-1">
-                      {col.label}
-                      <ArrowUpDown
-                        size={14}
-                        className={`${
-                          sortConfig?.key === col.key
-                            ? 'text-[#00ACC1]'
-                            : 'text-gray-400'
-                        }`}
-                      />
-                    </div>
-                  </th>
-                ))}
-                <th className="py-3 px-4 text-center">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sortedCompanies.map((company) => (
-                <tr
-                  key={company.id}
-                  className="border-t hover:bg-gray-50 transition"
-                >
-                  {/* ✅ Clickable company name */}
-                  <td
-                    onClick={() =>
-                      router.push(`/superadmin/company/${company.id}/employees`)
-                    }
-                    className="py-3 px-4 font-medium text-[#00ACC1] hover:underline cursor-pointer"
-                  >
-                    {company.name}
-                  </td>
+     <EditCompanyModal
+       open={editModal.open}
+       onClose={() =>
+         setEditModal({ open: false, companyId: null, currentName: '' })
+       }
+       companyId={editModal.companyId || ''}
+       currentName={editModal.currentName}
+     />
 
-                  <td className="py-3 px-4">{company.plan}</td>
-                  <td className="py-3 px-4">{company.employeeCount}</td>
-                  <td className="py-3 px-4">
-                    <span
-                      className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        company.status === 'active'
-                          ? 'bg-green-100 text-green-700'
-                          : company.status === 'suspended'
-                          ? 'bg-yellow-100 text-yellow-700'
-                          : 'bg-gray-100 text-gray-700'
-                      }`}
-                    >
-                      {company.status || '—'}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4 text-sm text-gray-500">
-                    {company.createdAt?.seconds
-                      ? new Date(
-                          company.createdAt.seconds * 1000
-                        ).toLocaleDateString()
-                      : '—'}
-                  </td>
-                  <td className="py-3 px-4 flex gap-2 justify-center">
-                    <Button
-                      onClick={() =>
-                        setEditModal({
-                          open: true,
-                          companyId: company.id,
-                          currentName: company.name,
-                        })
-                      }
-                      className="bg-[#00ACC1] hover:bg-[#0097A7] text-white text-xs px-3 py-1"
-                    >
-                      Edit
-                    </Button>
-                    <Button
-                      onClick={() => handleDelete(company.id)}
-                      className="bg-red-500 hover:bg-red-600 text-white text-xs px-3 py-1"
-                    >
-                      Delete
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </main>
-  );
+     {/* Loading */}
+     {loading ? (
+       <div className="space-y-3">
+         {[...Array(3)].map((_, i) => (
+           <Skeleton key={i} className="h-10 w-full rounded-md" />
+         ))}
+       </div>
+     ) : sortedCompanies.length === 0 ? (
+       <p className="text-gray-500 mt-8 text-center">No companies added yet.</p>
+     ) : (
+       <>
+         {/* ================= MOBILE VIEW ================= */}
+         <div className="xl:hidden space-y-4">
+           {sortedCompanies.map((company) => (
+             <div
+               key={company.id}
+               className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm"
+             >
+               <div
+                 onClick={() =>
+                   router.push(`/superadmin/company/${company.id}/employees`)
+                 }
+                 className="text-lg font-semibold text-[#00ACC1] cursor-pointer"
+               >
+                 {company.name}
+               </div>
+
+               <div className="mt-2 text-sm text-gray-700 space-y-1">
+                 <div>Plan: {company.plan}</div>
+                 <div>Employees: {company.employeeCount}</div>
+
+                 <div>
+                   <span
+                     className={`px-2 py-1 rounded-full text-xs font-medium ${
+                       company.status === 'active'
+                         ? 'bg-green-100 text-green-700'
+                         : company.status === 'suspended'
+                         ? 'bg-yellow-100 text-yellow-700'
+                         : 'bg-gray-100 text-gray-700'
+                     }`}
+                   >
+                     {company.status || '—'}
+                   </span>
+                 </div>
+
+                 <div className="text-xs text-gray-500">
+                   {company.createdAt?.seconds
+                     ? new Date(
+                         company.createdAt.seconds * 1000
+                       ).toLocaleDateString()
+                     : '—'}
+                 </div>
+               </div>
+
+               <div className="mt-4 flex gap-2">
+                 <Button
+                   className="flex-1 bg-[#00ACC1] hover:bg-[#0097A7] text-white text-xs"
+                   onClick={() =>
+                     setEditModal({
+                       open: true,
+                       companyId: company.id,
+                       currentName: company.name,
+                     })
+                   }
+                 >
+                   Edit
+                 </Button>
+
+                 <Button
+                   className="flex-1 bg-red-500 hover:bg-red-600 text-white text-xs"
+                   onClick={() => handleDelete(company.id)}
+                 >
+                   Delete
+                 </Button>
+               </div>
+             </div>
+           ))}
+         </div>
+
+         {/* ================= DESKTOP TABLE (UNCHANGED) ================= */}
+         <div className="hidden xl:block overflow-x-auto">
+           <table className="min-w-full border border-gray-200 rounded-xl shadow-sm bg-white">
+             <thead className="bg-gray-100 text-gray-700 text-sm uppercase font-semibold">
+               <tr>
+                 {[
+                   { label: 'Company Name', key: 'name' },
+                   { label: 'Plan', key: 'plan' },
+                   { label: 'Employees', key: 'employeeCount' },
+                   { label: 'Status', key: 'status' },
+                   { label: 'Created', key: 'createdAt' },
+                 ].map((col) => (
+                   <th
+                     key={col.key}
+                     onClick={() => requestSort(col.key as keyof Company)}
+                     className="py-3 px-4 text-left cursor-pointer hover:text-[#00ACC1] transition"
+                   >
+                     <div className="flex items-center gap-1">
+                       {col.label}
+                       <ArrowUpDown
+                         size={14}
+                         className={
+                           sortConfig?.key === col.key
+                             ? 'text-[#00ACC1]'
+                             : 'text-gray-400'
+                         }
+                       />
+                     </div>
+                   </th>
+                 ))}
+                 <th className="py-3 px-4 text-center">Actions</th>
+               </tr>
+             </thead>
+
+             <tbody>
+               {sortedCompanies.map((company) => (
+                 <tr
+                   key={company.id}
+                   className="border-t hover:bg-gray-50 transition"
+                 >
+                   <td
+                     onClick={() =>
+                       router.push(
+                         `/superadmin/company/${company.id}/employees`
+                       )
+                     }
+                     className="py-3 px-4 font-medium text-[#00ACC1] hover:underline cursor-pointer"
+                   >
+                     {company.name}
+                   </td>
+
+                   <td className="py-3 px-4">{company.plan}</td>
+
+                   <td className="py-3 px-4">{company.employeeCount}</td>
+
+                   <td className="py-3 px-4">
+                     <span
+                       className={`px-2 py-1 rounded-full text-xs font-medium ${
+                         company.status === 'active'
+                           ? 'bg-green-100 text-green-700'
+                           : company.status === 'suspended'
+                           ? 'bg-yellow-100 text-yellow-700'
+                           : 'bg-gray-100 text-gray-700'
+                       }`}
+                     >
+                       {company.status || '—'}
+                     </span>
+                   </td>
+
+                   <td className="py-3 px-4 text-sm text-gray-500">
+                     {company.createdAt?.seconds
+                       ? new Date(
+                           company.createdAt.seconds * 1000
+                         ).toLocaleDateString()
+                       : '—'}
+                   </td>
+
+                   <td className="py-3 px-4 flex gap-2 justify-center">
+                     <Button
+                       onClick={() =>
+                         setEditModal({
+                           open: true,
+                           companyId: company.id,
+                           currentName: company.name,
+                         })
+                       }
+                       className="bg-[#00ACC1] hover:bg-[#0097A7] text-white text-xs px-3 py-1"
+                     >
+                       Edit
+                     </Button>
+
+                     <Button
+                       onClick={() => handleDelete(company.id)}
+                       className="bg-red-500 hover:bg-red-600 text-white text-xs px-3 py-1"
+                     >
+                       Delete
+                     </Button>
+                   </td>
+                 </tr>
+               ))}
+             </tbody>
+           </table>
+         </div>
+       </>
+     )}
+   </main>
+ );
 }

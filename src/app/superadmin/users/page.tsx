@@ -221,7 +221,7 @@ export default function UsersPage() {
   };
 
   // -----------------------
-  // UI (UNCHANGED STRUCTURE)
+  // UI
   // -----------------------
   return (
     <main className="p-4 md:p-6">
@@ -277,22 +277,26 @@ export default function UsersPage() {
             </div>
           ) : (
             <>
-              {/* DESKTOP */}
-              <div className="hidden md:block overflow-x-auto">
-                <table className="min-w-full text-sm">
+              {/* TABLET + DESKTOP */}
+              <div className="hidden md:block">
+                <table className="w-full text-sm">
                   <thead className="bg-gray-100">
                     <tr>
                       <th className="px-6 py-3 text-left">Name</th>
-                      <th className="px-6 py-3 text-left">Email</th>
+                      <th className="px-6 py-3 text-left hidden lg:table-cell">
+                        Email
+                      </th>
                       <th className="px-6 py-3 text-left">Role</th>
-                      <th className="px-6 py-3 text-left">Company</th>
+                      <th className="px-6 py-3 text-left hidden lg:table-cell">
+                        Company
+                      </th>
                       <th className="px-6 py-3 text-left">Status</th>
                       <th className="px-6 py-3 text-right">Action</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filtered.map((u) => (
-                      <tr key={u.id} className="border-t">
+                      <tr key={u.id} className="border-t align-top">
                         <td
                           className="px-6 py-3 cursor-pointer"
                           onClick={() =>
@@ -301,7 +305,9 @@ export default function UsersPage() {
                         >
                           {u.fullName || '—'}
                         </td>
-                        <td className="px-6 py-3">{u.email}</td>
+                        <td className="px-6 py-3 hidden lg:table-cell">
+                          {u.email}
+                        </td>
                         <td className="px-6 py-3">
                           <select
                             value={u.role}
@@ -316,20 +322,24 @@ export default function UsersPage() {
                             )}
                           </select>
                         </td>
-                        <td className="px-6 py-3">{u.companyName}</td>
+                        <td className="px-6 py-3 hidden lg:table-cell">
+                          {u.companyName}
+                        </td>
                         <td className="px-6 py-3">
                           <StatusBadge status={u.status} />
                         </td>
                         <td className="px-6 py-3 text-right">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => toggleUserStatus(u)}
-                          >
-                            {u.status === 'suspended'
-                              ? 'Reactivate'
-                              : 'Suspend'}
-                          </Button>
+                          <div className="flex flex-col gap-2 lg:items-end lg:flex-row">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => toggleUserStatus(u)}
+                            >
+                              {u.status === 'suspended'
+                                ? 'Reactivate'
+                                : 'Suspend'}
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -337,7 +347,7 @@ export default function UsersPage() {
                 </table>
               </div>
 
-              {/* MOBILE (UNCHANGED) */}
+              {/* MOBILE */}
               <div className="md:hidden divide-y">
                 {filtered.map((u) => (
                   <div key={u.id} className="p-4">

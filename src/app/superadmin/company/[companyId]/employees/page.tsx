@@ -36,9 +36,6 @@ const departments = [
 ];
 
 export default function EmployeesPage() {
-  // -----------------------------
-  // HOOKS (must stay at the top)
-  // -----------------------------
   const params = useParams();
   const router = useRouter();
   const { loading: authLoading } = useAuth();
@@ -86,10 +83,6 @@ export default function EmployeesPage() {
   const deptInputRef = useRef<HTMLInputElement | null>(null);
   const exportRef = useRef<HTMLDivElement | null>(null);
 
-  // -----------------------------
-  // EFFECTS
-  // -----------------------------
-
   // Debounced search
   useEffect(() => {
     const t = setTimeout(() => setSearchName(searchValue.trim()), 350);
@@ -132,41 +125,8 @@ export default function EmployeesPage() {
     return () => document.removeEventListener('mousedown', onDoc);
   }, [exportOpen]);
 
-  // -----------------------------
-  // EARLY EXIT (auth loading)
-  // -----------------------------
   if (authLoading) return null;
 
-  // -----------------------------
-  // HANDLERS
-  // -----------------------------
-  const handleSearchKey = (e: any) => {
-    if (e.key === 'Enter') {
-      setSearchName(searchValue.trim());
-      searchInputRef.current?.blur();
-    }
-    if (e.key === 'Escape') {
-      setSearchValue('');
-      setSearchName('');
-      searchInputRef.current?.blur();
-    }
-  };
-
-  const handleDeptKey = (e: any) => {
-    if (e.key === 'Enter') {
-      setDepartmentFilter(departmentValue || null);
-      deptInputRef.current?.blur();
-    }
-    if (e.key === 'Escape') {
-      setDepartmentValue('');
-      setDepartmentFilter(null);
-      deptInputRef.current?.blur();
-    }
-  };
-
-  // -----------------------------
-  // RETURN (no hooks below)
-  // -----------------------------
   return (
     <motion.main
       className="p-6 max-w-6xl mx-auto"
@@ -177,20 +137,11 @@ export default function EmployeesPage() {
       <AnimatePresence>
         {confirmDelete.open && (
           <motion.div
-            key="delete-modal"
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
             aria-modal="true"
             role="dialog"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
           >
-            <motion.div
-              initial={{ scale: 0.95 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.9 }}
-              className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl"
-            >
+            <motion.div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl">
               <h2 className="text-xl font-semibold mb-4">
                 Delete {confirmDelete.name}?
               </h2>
@@ -243,7 +194,6 @@ export default function EmployeesPage() {
 
         {/* CONTROLS */}
         <div className="flex gap-2 flex-wrap items-center">
-          {/* Search */}
           <div className="flex items-center gap-2 bg-white p-2 rounded-md shadow-sm">
             <SearchIcon size={16} className="text-gray-400" />
             <Input
@@ -251,12 +201,10 @@ export default function EmployeesPage() {
               placeholder="Search name..."
               value={searchValue}
               onChange={(e) => setSearchValue(e.target.value)}
-              onKeyDown={handleSearchKey}
               className="w-48"
             />
           </div>
 
-          {/* Status */}
           <select
             value={statusValue}
             onChange={(e) => setStatusValue(e.target.value)}
@@ -268,25 +216,20 @@ export default function EmployeesPage() {
             <option value="Exited">Exited</option>
           </select>
 
-          {/* Department */}
-          <div>
-            <input
-              list="dept-list"
-              ref={deptInputRef}
-              value={departmentValue}
-              onChange={(e) => setDepartmentValue(e.target.value)}
-              onKeyDown={handleDeptKey}
-              placeholder="Department"
-              className="border rounded-md px-3 py-2 text-sm w-40 bg-white"
-            />
-            <datalist id="dept-list">
-              {departments.map((d) => (
-                <option key={d} value={d} />
-              ))}
-            </datalist>
-          </div>
+          <input
+            list="dept-list"
+            ref={deptInputRef}
+            value={departmentValue}
+            onChange={(e) => setDepartmentValue(e.target.value)}
+            placeholder="Department"
+            className="border rounded-md px-3 py-2 text-sm w-40 bg-white"
+          />
+          <datalist id="dept-list">
+            {departments.map((d) => (
+              <option key={d} value={d} />
+            ))}
+          </datalist>
 
-          {/* Sort */}
           <select
             value={sortValue}
             onChange={(e) => setSortValue(e.target.value)}
@@ -298,7 +241,6 @@ export default function EmployeesPage() {
             <option value="name:desc">Z → A</option>
           </select>
 
-          {/* Export dropdown */}
           <div className="relative" ref={exportRef}>
             <Button
               onClick={() => setExportOpen((s) => !s)}
@@ -309,13 +251,7 @@ export default function EmployeesPage() {
 
             <AnimatePresence>
               {exportOpen && (
-                <motion.div
-                  key="export-menu"
-                  initial={{ opacity: 0, scale: 0.96, y: -4 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.96, y: -4 }}
-                  className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border p-2 z-40"
-                >
+                <motion.div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border p-2 z-40">
                   <button
                     className="w-full text-left px-3 py-2 rounded hover:bg-gray-100"
                     onClick={() => {
@@ -348,7 +284,6 @@ export default function EmployeesPage() {
             </AnimatePresence>
           </div>
 
-          {/* Add employee */}
           <Button
             onClick={() =>
               router.push(`/superadmin/company/${companyId}/employees/new`)
@@ -360,7 +295,6 @@ export default function EmployeesPage() {
         </div>
       </div>
 
-      {/* TABLE */}
       <Card>
         <CardContent className="p-0">
           {loading ? (
@@ -377,7 +311,67 @@ export default function EmployeesPage() {
             </div>
           ) : (
             <>
-              <div className="hidden md:block overflow-x-auto">
+              {/* MOBILE + TABLET */}
+              <div className="lg:hidden space-y-4 p-4">
+                {employees.map((emp) => (
+                  <div
+                    key={emp.id}
+                    className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm"
+                  >
+                    <div className="font-semibold text-gray-800">
+                      {emp.name}
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      {emp.title} · {emp.department}
+                    </div>
+                    <div className="text-sm text-gray-500 truncate">
+                      {emp.email}
+                    </div>
+
+                    <div className="mt-2">
+                      <span
+                        className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          emp.status === 'Active'
+                            ? 'bg-green-100 text-green-700'
+                            : emp.status === 'On Leave'
+                            ? 'bg-yellow-100 text-yellow-700'
+                            : 'bg-gray-200 text-gray-700'
+                        }`}
+                      >
+                        {emp.status}
+                      </span>
+                    </div>
+
+                    <div className="mt-4 flex flex-col gap-2">
+                      <Button
+                        className="bg-[#00ACC1] text-white"
+                        onClick={() =>
+                          router.push(
+                            `/superadmin/company/${companyId}/employees/${emp.id}/edit`
+                          )
+                        }
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        className="bg-red-600 text-white"
+                        onClick={() =>
+                          setConfirmDelete({
+                            open: true,
+                            id: emp.id,
+                            name: emp.name,
+                          })
+                        }
+                      >
+                        Delete
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* DESKTOP ONLY */}
+              <div className="hidden lg:block overflow-x-auto">
                 <table className="min-w-full text-sm text-left">
                   <thead className="bg-gray-100 text-gray-700 text-xs uppercase">
                     <tr>
