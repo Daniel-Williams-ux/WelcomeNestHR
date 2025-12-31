@@ -1,7 +1,9 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Menu } from 'lucide-react';
+
 import { useUserAccess } from '@/hooks/useUserAccess';
 import { useCurrentCompany } from '@/hooks/useCurrentCompany';
 import { HRSidebar } from '@/components/dashboard/HRSidebar';
@@ -12,7 +14,9 @@ export default function HRLayout({ children }: { children: React.ReactNode }) {
   const { role, loading: accessLoading } = useUserAccess();
   const { companyId, loading: companyLoading, error } = useCurrentCompany();
 
-  // --- 1. Block employees or unassigned users ---
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Access guard
   useEffect(() => {
     if (!accessLoading && role && role !== 'hr') {
       router.replace('/dashboard');
@@ -24,9 +28,7 @@ export default function HRLayout({ children }: { children: React.ReactNode }) {
   }
 
   if (role !== 'hr') {
-    return (
-      <div className="p-6 text-red-600">Access denied. HR role required.</div>
-    );
+    return <div className="p-6 text-red-600">Access denied.</div>;
   }
 
   if (error) {
@@ -37,20 +39,53 @@ export default function HRLayout({ children }: { children: React.ReactNode }) {
     return (
       <div className="p-6">
         <h2 className="text-xl font-semibold mb-2">No company assigned</h2>
-        <p>Your HR account does not have a company yet.</p>
         <p>Please ask the Superadmin to assign your company.</p>
       </div>
     );
   }
 
-  // --- 2. HR Dashboard Layout ---
   return (
-    <div className="flex min-h-screen bg-white dark:bg-gray-900">
-      <HRSidebar />
+    <div className="flex min-h-screen bg-white">
+      {/* MOBILE OVERLAY */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/40 z-40 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
 
-      <div className="flex-1 flex flex-col md:ml-64 min-h-screen">
-        <DashboardTopbar />
-        <main className="p-6">{children}</main>
+      {/* SIDEBAR (DO NOT WRAP OR STYLE IT) */}
+      <div
+        className={`
+          fixed z-50 md:static
+          ${sidebarOpen ? 'block' : 'hidden'}
+          md:block
+        `}
+      >
+        <HRSidebar onNavigate={() => setSidebarOpen(false)} />
+      </div>
+
+      {/* MAIN CONTENT */}
+      <div className="flex-1 flex flex-col min-h-screen md:ml-64">
+        {/* MOBILE TOP BAR */}
+        <div className="md:hidden flex items-center gap-3 p-4 border-b sticky top-0 bg-white z-30">
+          <button
+            aria-label="Open menu"
+            onClick={() => setSidebarOpen(true)}
+            className="p-2 rounded-md hover:bg-gray-100"
+          >
+            <Menu size={22} />
+          </button>
+
+          <span className="font-semibold">HR Dashboard</span>
+        </div>
+
+        {/* DESKTOP TOP BAR */}
+        <div className="hidden md:block">
+          <DashboardTopbar />
+        </div>
+
+        <main className="p-4 md:p-6">{children}</main>
       </div>
     </div>
   );
