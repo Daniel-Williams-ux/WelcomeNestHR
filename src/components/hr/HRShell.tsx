@@ -214,7 +214,7 @@ export default function HRShell({
           initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.18 }}
-          className="max-w-7xl mx-auto px-6 py-8"
+          className="w-full px-6 py-8"
         >
           {children}
         </motion.div>

@@ -51,34 +51,37 @@ export default function HRLayout({ children }: { children: React.ReactNode }) {
         <div
           className="fixed inset-0 bg-black/40 z-40 md:hidden"
           onClick={() => setSidebarOpen(false)}
+          aria-hidden
         />
       )}
 
-      {/* SIDEBAR (DO NOT WRAP OR STYLE IT) */}
-      <div
+      {/* SIDEBAR */}
+      <aside
         className={`
-          fixed z-50 md:static
-          ${sidebarOpen ? 'block' : 'hidden'}
-          md:block
-        `}
+    fixed inset-y-0 left-0 z-50
+    w-64 shrink-0
+    transform transition-transform duration-200 ease-out
+    ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+    md:translate-x-0 md:static
+  `}
       >
         <HRSidebar onNavigate={() => setSidebarOpen(false)} />
-      </div>
+      </aside>
 
       {/* MAIN CONTENT */}
       <div className="flex-1 flex flex-col min-h-screen md:ml-64">
         {/* MOBILE TOP BAR */}
-        <div className="md:hidden flex items-center gap-3 p-4 border-b sticky top-0 bg-white z-30">
+        <header className="md:hidden flex items-center gap-3 p-4 border-b sticky top-0 bg-white z-30">
           <button
             aria-label="Open menu"
             onClick={() => setSidebarOpen(true)}
-            className="p-2 rounded-md hover:bg-gray-100"
+            className="p-2 rounded-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-[#00ACC1]"
           >
             <Menu size={22} />
           </button>
 
           <span className="font-semibold">HR Dashboard</span>
-        </div>
+        </header>
 
         {/* DESKTOP TOP BAR */}
         <div className="hidden md:block">

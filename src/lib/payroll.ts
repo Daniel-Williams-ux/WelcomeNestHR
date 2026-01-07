@@ -14,6 +14,7 @@ import {
   PayrollRunStatus,
   EmployeePayrollItem,
   PayrollFrequency,
+  Payslip,
 } from '@/types/payroll';
 
 /* ----------------------------------------
@@ -52,7 +53,7 @@ export async function createPayrollRun(
 }
 
 /* ----------------------------------------
-   APPROVE PAYROLL RUN (LOCK DATA)
+   APPROVE PAYROLL RUN
 ----------------------------------------- */
 
 export async function approvePayrollRun(
@@ -78,7 +79,7 @@ export async function approvePayrollRun(
 }
 
 /* ----------------------------------------
-   MARK PAYROLL AS PAID
+   MARK PAYROLL AS PAID + GENERATE PAYSLIPS
 ----------------------------------------- */
 
 export async function markPayrollPaid(
@@ -86,16 +87,60 @@ export async function markPayrollPaid(
   runId: string,
   paidBy: string
 ) {
-  const ref = doc(db, 'companies', companyId, 'payrollRuns', runId);
+  const runRef = doc(db, 'companies', companyId, 'payrollRuns', runId);
+
+  //  Read payroll items OUTSIDE transaction
+  const itemsRef = collection(
+    db,
+    'companies',
+    companyId,
+    'payrollRuns',
+    runId,
+    'items'
+  );
+
+  const itemsSnap = await getDocs(itemsRef);
 
   await runTransaction(db, async (tx) => {
-    const snap = await tx.get(ref);
-    if (!snap.exists()) throw new Error('Payroll run not found.');
+    const runSnap = await tx.get(runRef);
+    if (!runSnap.exists()) throw new Error('Payroll run not found.');
 
-    const data = snap.data() as PayrollRun;
-    assertStatus(data.status, 'approved');
+    const run = runSnap.data() as PayrollRun;
+    assertStatus(run.status, 'approved');
 
-    tx.update(ref, {
+    //  Generate payslips inside transaction
+    for (const itemSnap of itemsSnap.docs) {
+      const item = itemSnap.data() as EmployeePayrollItem;
+
+      const payslipRef = doc(
+        db,
+        'companies',
+        companyId,
+        'payrollRuns',
+        runId,
+        'payslips',
+        item.employeeId
+      );
+
+      const payslip: Payslip = {
+        runId,
+        companyId,
+        periodStart: run.periodStart,
+        periodEnd: run.periodEnd,
+        currency: 'NGN',
+        grossPay: item.grossPay,
+        deductionsTotal:
+          item.deductions?.reduce((sum, d) => sum + d.amount, 0) ?? 0,
+        netPay: item.netPay,
+        status: 'paid',
+        issuedAt: Timestamp.now(),
+      };
+
+      tx.set(payslipRef, payslip);
+    }
+
+    //  Mark payroll run as paid
+    tx.update(runRef, {
       status: 'paid',
       paidBy,
       paidAt: Timestamp.now(),
@@ -104,34 +149,7 @@ export async function markPayrollPaid(
 }
 
 /* ----------------------------------------
-   CREATE EMPLOYEE PAYROLL ITEM
------------------------------------------ */
-
-export async function createEmployeePayrollItem(
-  companyId: string,
-  employeeId: string,
-  runId: string,
-  item: EmployeePayrollItem
-) {
-  const ref = doc(
-    db,
-    'companies',
-    companyId,
-    'employees',
-    employeeId,
-    'payrollItems',
-    runId
-  );
-
-  await setDoc(ref, {
-    ...item,
-    status: 'pending',
-    createdAt: Timestamp.now(),
-  });
-}
-
-/* ----------------------------------------
-   SNAPSHOT EMPLOYEES INTO PAYROLL RUN
+   SNAPSHOT EMPLOYEES INTO PAYROLL RUN ITEMS
 ----------------------------------------- */
 
 export async function snapshotPayrollRunEmployees(
@@ -144,28 +162,39 @@ export async function snapshotPayrollRunEmployees(
 
   let totalGross = 0;
   let totalNet = 0;
+  let totalEmployees = 0;
 
   for (const docSnap of snapshot.docs) {
     const emp = docSnap.data();
 
-    // Skip employees without active compensation
     if (
-      !emp.salary ||
-      !emp.payFrequency ||
-      emp.payFrequency !== frequency ||
-      emp.status !== 'active'
+      emp.status?.toLowerCase() !== 'active' ||
+      typeof emp.salary !== 'number' ||
+      emp.payFrequency !== frequency
     ) {
       continue;
     }
 
     const grossPay = emp.salary;
-    const deductions = 0; // placeholder for taxes/benefits later
+    const deductions = 0;
     const netPay = grossPay - deductions;
 
     totalGross += grossPay;
     totalNet += netPay;
+    totalEmployees++;
 
-    await createEmployeePayrollItem(companyId, docSnap.id, runId, {
+    const itemRef = doc(
+      db,
+      'companies',
+      companyId,
+      'payrollRuns',
+      runId,
+      'items',
+      docSnap.id
+    );
+
+    await setDoc(itemRef, {
+      runId,
       employeeId: docSnap.id,
       employeeName: emp.name,
       baseSalary: emp.salary,
@@ -173,16 +202,19 @@ export async function snapshotPayrollRunEmployees(
       grossPay,
       deductions,
       netPay,
+      status: 'pending',
+      createdAt: Timestamp.now(),
     });
   }
 
-  // Persist totals on payroll run
   const runRef = doc(db, 'companies', companyId, 'payrollRuns', runId);
+
   await setDoc(
     runRef,
     {
-      totalGross,
-      totalNet,
+      totalEmployees,
+      grossTotal: totalGross,
+      netTotal: totalNet,
     },
     { merge: true }
   );
