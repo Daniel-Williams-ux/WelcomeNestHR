@@ -11,7 +11,7 @@ import {
   createPayrollRun,
   approvePayrollRun,
   markPayrollPaid,
-  snapshotPayrollRunEmployees, // ✅ REQUIRED IMPORT
+  snapshotPayrollRunEmployees,
 } from '@/lib/payroll';
 import { PayrollRun } from '@/types/payroll';
 import { Plus } from 'lucide-react';
@@ -57,6 +57,18 @@ export default function HRPayrollPage() {
     );
   }
 
+  /**
+   *  PAYROLL VISIBILITY RULE (FINAL)
+   * - Only ONE active payroll may be visible (draft or approved)
+   * - Paid payrolls are historical (max 5)
+   */
+
+ const activeRun = runs.find((r) => r.status !== 'paid') ?? null;
+
+
+
+  const paidRuns = runs.filter((r) => r.status === 'paid').slice(0, 5);
+
   async function handleApprove(runId: string) {
     if (!confirm('Approve this payroll? This cannot be undone.')) return;
     try {
@@ -93,9 +105,9 @@ export default function HRPayrollPage() {
 
         <Button
           className="bg-[#00ACC1] text-white"
+          disabled={!!activeRun}
           onClick={async () => {
-            // ✅ SAFETY GUARD (TypeScript + runtime)
-            if (!companyId) return;
+            if (!companyId || activeRun) return;
 
             const runId = crypto.randomUUID();
 
@@ -110,7 +122,6 @@ export default function HRPayrollPage() {
               createdBy: user!.uid,
             });
 
-            // ✅ CRITICAL STEP: snapshot employees into payroll items
             await snapshotPayrollRunEmployees(companyId, runId, 'monthly');
 
             router.push(`/hr/payroll/run?runId=${runId}`);
@@ -124,43 +135,66 @@ export default function HRPayrollPage() {
       {loading ? (
         <Skeleton className="h-24 w-full" />
       ) : (
-        runs.map((run) => (
-          <Card key={run.id}>
-            <CardContent className="p-4 flex justify-between items-center">
-              <div>
-                <div className="font-semibold capitalize">
-                  {run.frequency} payroll
+        <>
+          {/* ACTIVE PAYROLL (MAX 1) */}
+          {activeRun && (
+            <Card>
+              <CardContent className="p-4 flex justify-between items-center">
+                <div>
+                  <div className="font-semibold capitalize">
+                    {activeRun.frequency} payroll
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    Status: {activeRun.status}
+                  </div>
                 </div>
-                <div className="text-sm text-gray-600">
-                  Status: {run.status}
+
+                <div className="flex gap-2">
+                  {activeRun.status === 'draft' && (
+                    <Button
+                      size="sm"
+                      disabled={actionRunId === activeRun.id}
+                      onClick={() => handleApprove(activeRun.id)}
+                    >
+                      Approve
+                    </Button>
+                  )}
+
+                  {activeRun.status === 'approved' && (
+                    <Button
+                      size="sm"
+                      className="bg-green-600 text-white"
+                      disabled={actionRunId === activeRun.id}
+                      onClick={() => handleMarkPaid(activeRun.id)}
+                    >
+                      Mark Paid
+                    </Button>
+                  )}
                 </div>
-              </div>
+              </CardContent>
+            </Card>
+          )}
 
-              <div className="flex gap-2">
-                {run.status === 'draft' && (
-                  <Button
-                    size="sm"
-                    disabled={actionRunId === run.id}
-                    onClick={() => handleApprove(run.id)}
-                  >
-                    Approve
-                  </Button>
-                )}
+          {/* PAYROLL HISTORY */}
+          {paidRuns.length > 0 && (
+            <section className="space-y-2">
+              <h2 className="text-sm font-semibold text-gray-500">
+                Recent Payroll History
+              </h2>
 
-                {run.status === 'approved' && (
-                  <Button
-                    size="sm"
-                    className="bg-green-600 text-white"
-                    disabled={actionRunId === run.id}
-                    onClick={() => handleMarkPaid(run.id)}
-                  >
-                    Mark Paid
-                  </Button>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        ))
+              {paidRuns.map((run) => (
+                <Card key={run.id}>
+                  <CardContent className="p-4 flex justify-between">
+                    <span className="capitalize">{run.frequency} payroll</span>
+                    <span className="text-sm text-gray-500">
+                      Net: {run.netTotal}
+                    </span>
+                  </CardContent>
+                </Card>
+              ))}
+            </section>
+          )}
+        </>
       )}
     </main>
   );

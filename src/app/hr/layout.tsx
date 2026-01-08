@@ -7,7 +7,7 @@ import { Menu } from 'lucide-react';
 import { useUserAccess } from '@/hooks/useUserAccess';
 import { useCurrentCompany } from '@/hooks/useCurrentCompany';
 import { HRSidebar } from '@/components/dashboard/HRSidebar';
-import DashboardTopbar from '@/components/dashboard/DashboardTopbar';
+import HRTopbar from '@/components/hr/HRTopbar';
 
 export default function HRLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -69,7 +69,7 @@ export default function HRLayout({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* MAIN CONTENT */}
-      <div className="flex-1 flex flex-col min-h-screen md:ml-64">
+      <div className="flex-1 flex flex-col min-h-screen">
         {/* MOBILE TOP BAR */}
         <header className="md:hidden flex items-center gap-3 p-4 border-b sticky top-0 bg-white z-30">
           <button
@@ -85,7 +85,7 @@ export default function HRLayout({ children }: { children: React.ReactNode }) {
 
         {/* DESKTOP TOP BAR */}
         <div className="hidden md:block">
-          <DashboardTopbar />
+          <HRTopbar />
         </div>
 
         <main className="p-4 md:p-6">{children}</main>

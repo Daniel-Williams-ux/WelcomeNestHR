@@ -129,8 +129,11 @@ export async function markPayrollPaid(
         periodEnd: run.periodEnd,
         currency: 'NGN',
         grossPay: item.grossPay,
-        deductionsTotal:
-          item.deductions?.reduce((sum, d) => sum + d.amount, 0) ?? 0,
+        deductionsTotal: Array.isArray(item.deductions)
+          ? item.deductions.reduce((sum, d) => sum + d.amount, 0)
+          : typeof item.deductions === 'number'
+          ? item.deductions
+          : 0,
         netPay: item.netPay,
         status: 'paid',
         issuedAt: Timestamp.now(),
