@@ -3,6 +3,8 @@
     {
       "source": "functions",
       "codebase": "default",
+      "platform": "gcfv1",
+      "runtime": "nodejs20",
       "ignore": [
         "node_modules",
         ".git",

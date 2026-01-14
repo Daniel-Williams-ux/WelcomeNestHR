@@ -16,6 +16,7 @@ import {
 import { PayrollRun } from '@/types/payroll';
 import { Plus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import PayrollYearSummary from '@/components/hr/PayrollYearSummary';
 
 export default function HRPayrollPage() {
   const { user, loading: authLoading } = useAuth();
@@ -196,6 +197,7 @@ export default function HRPayrollPage() {
           )}
         </>
       )}
+      <PayrollYearSummary />
     </main>
   );
 }

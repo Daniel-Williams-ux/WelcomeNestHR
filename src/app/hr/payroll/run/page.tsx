@@ -7,7 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Printer } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 import { PayrollRun, EmployeePayrollItem } from '@/types/payroll';
@@ -30,7 +30,6 @@ export default function HRPayrollRunPage() {
     async function loadPreview() {
       setLoading(true);
 
-      // Load payroll run
       const runRef = doc(db, 'companies', companyId, 'payrollRuns', runId);
       const runSnap = await getDoc(runRef);
 
@@ -42,7 +41,6 @@ export default function HRPayrollRunPage() {
 
       setRun(runSnap.data() as PayrollRun);
 
-      // Load payroll items
       const itemsRef = collection(
         db,
         'companies',
@@ -72,51 +70,89 @@ export default function HRPayrollRunPage() {
 
   if (!run) return null;
 
+  const totalGross = items.reduce((sum, i) => sum + i.grossPay, 0);
+  const totalNet = items.reduce((sum, i) => sum + i.netPay, 0);
+
   return (
     <main className="p-4 md:p-6 space-y-6 max-w-6xl mx-auto">
       {/* HEADER */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            onClick={() => router.push('/hr/payroll')}
+            className="flex items-center gap-2"
+          >
+            <ArrowLeft size={16} />
+            Back
+          </Button>
+          <h1 className="text-2xl font-bold">Payroll Preview</h1>
+        </div>
+
         <Button
-          variant="ghost"
-          onClick={() => router.push('/hr/payroll')}
+          variant="outline"
           className="flex items-center gap-2"
+          onClick={() => window.print()}
         >
-          <ArrowLeft size={16} />
-          Back
+          <Printer size={16} />
+          Print / Save PDF
         </Button>
-        <h1 className="text-2xl font-bold">Payroll Run Preview</h1>
       </div>
 
       {/* SUMMARY */}
       <Card>
-        <CardContent className="p-4 space-y-2">
-          <p className="text-sm text-gray-600">
-            Frequency:{' '}
-            <span className="font-semibold capitalize">{run.frequency}</span>
-          </p>
-          <p className="text-sm text-gray-600">
-            Employees: <span className="font-semibold">{items.length}</span>
-          </p>
-          <p className="text-sm text-gray-600">
-            Net total: <span className="font-semibold">{run.netTotal}</span>
-          </p>
+        <CardContent className="p-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+          <div>
+            <p className="text-gray-500">Frequency</p>
+            <p className="font-semibold capitalize">{run.frequency}</p>
+          </div>
+          <div>
+            <p className="text-gray-500">Employees</p>
+            <p className="font-semibold">{items.length}</p>
+          </div>
+          <div>
+            <p className="text-gray-500">Gross Total</p>
+            <p className="font-semibold">{totalGross.toLocaleString()}</p>
+          </div>
+          <div>
+            <p className="text-gray-500">Net Total</p>
+            <p className="font-semibold">{totalNet.toLocaleString()}</p>
+          </div>
         </CardContent>
       </Card>
 
-      {/* EMPLOYEES */}
-      <section className="space-y-2">
-        {items.map((item) => (
-          <Card key={item.employeeId}>
-            <CardContent className="p-4 flex justify-between">
-              <span>{item.employeeName}</span>
-              <span className="text-sm text-gray-600">{item.netPay}</span>
-            </CardContent>
-          </Card>
-        ))}
-      </section>
+      {/* EMPLOYEE TABLE */}
+      <Card>
+        <CardContent className="p-0 overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-100 border-b">
+              <tr>
+                <th className="p-3 text-left">Employee</th>
+                <th className="p-3 text-right">Gross</th>
+                <th className="p-3 text-right">Net</th>
+                <th className="p-3 text-center">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((item) => (
+                <tr key={item.employeeId} className="border-b">
+                  <td className="p-3">{item.employeeName}</td>
+                  <td className="p-3 text-right">
+                    {item.grossPay.toLocaleString()}
+                  </td>
+                  <td className="p-3 text-right">
+                    {item.netPay.toLocaleString()}
+                  </td>
+                  <td className="p-3 text-center capitalize">{item.status}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </CardContent>
+      </Card>
 
-      {/* ACTION */}
-      <div className="flex justify-end pt-4">
+      {/* FOOTER */}
+      <div className="flex justify-end pt-2">
         <Button
           className="bg-[#00ACC1] text-white"
           onClick={() => router.push('/hr/payroll')}

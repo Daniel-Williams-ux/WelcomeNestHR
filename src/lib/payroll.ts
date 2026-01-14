@@ -89,7 +89,6 @@ export async function markPayrollPaid(
 ) {
   const runRef = doc(db, 'companies', companyId, 'payrollRuns', runId);
 
-  //  Read payroll items OUTSIDE transaction
   const itemsRef = collection(
     db,
     'companies',
@@ -108,10 +107,12 @@ export async function markPayrollPaid(
     const run = runSnap.data() as PayrollRun;
     assertStatus(run.status, 'approved');
 
-    //  Generate payslips inside transaction
     for (const itemSnap of itemsSnap.docs) {
       const item = itemSnap.data() as EmployeePayrollItem;
 
+      const payslipId = `${runId}_${item.employeeId}`;
+
+      // Canonical payslip (company scope)
       const payslipRef = doc(
         db,
         'companies',
@@ -129,20 +130,40 @@ export async function markPayrollPaid(
         periodEnd: run.periodEnd,
         currency: 'NGN',
         grossPay: item.grossPay,
-        deductionsTotal: Array.isArray(item.deductions)
-          ? item.deductions.reduce((sum, d) => sum + d.amount, 0)
-          : typeof item.deductions === 'number'
-          ? item.deductions
-          : 0,
+        deductionsTotal:
+          item.deductions?.reduce((sum, d) => sum + d.amount, 0) ?? 0,
         netPay: item.netPay,
         status: 'paid',
         issuedAt: Timestamp.now(),
       };
 
       tx.set(payslipRef, payslip);
+
+      // 🔹 MIRROR FOR EMPLOYEE (Option A)
+      const userPayslipRef = doc(
+        db,
+        'users',
+        item.employeeId,
+        'payslips',
+        payslipId
+      );
+
+      tx.set(userPayslipRef, {
+        id: payslipId,
+        runId,
+        companyId,
+        periodStart: run.periodStart,
+        periodEnd: run.periodEnd,
+        currency: 'NGN',
+        grossPay: item.grossPay,
+        deductionsTotal:
+          item.deductions?.reduce((sum, d) => sum + d.amount, 0) ?? 0,
+        netPay: item.netPay,
+        status: 'paid',
+        issuedAt: Timestamp.now(),
+      });
     }
 
-    //  Mark payroll run as paid
     tx.update(runRef, {
       status: 'paid',
       paidBy,
@@ -150,6 +171,7 @@ export async function markPayrollPaid(
     });
   });
 }
+
 
 /* ----------------------------------------
    SNAPSHOT EMPLOYEES INTO PAYROLL RUN ITEMS
