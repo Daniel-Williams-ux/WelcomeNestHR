@@ -12,7 +12,7 @@ import {
   CreditCard,
   Settings,
   X,
-  Bot, // 🤖 AI icon
+  Bot, //  AI icon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -25,30 +25,35 @@ type SidebarProps = {
 
 const navItems = [
   {
-    name: "Smart Onboarding",
-    path: "/dashboard/onboarding",
+    name: 'Smart Onboarding',
+    path: '/dashboard/onboarding',
     icon: <Home size={18} />,
   },
-  { name: "LifeSync", path: "/dashboard/lifesync", icon: <Heart size={18} /> },
+  { name: 'LifeSync', path: '/dashboard/lifesync', icon: <Heart size={18} /> },
   {
-    name: "Collaborate",
-    path: "/dashboard/collaborate",
+    name: 'Collaborate',
+    path: '/dashboard/collaborate',
     icon: <Users size={18} />,
   },
   {
-    name: "Compliance",
-    path: "/dashboard/compliance",
+    name: 'Compliance',
+    path: '/dashboard/compliance',
     icon: <ShieldCheck size={18} />,
   },
-  { name: "Primer", path: "/dashboard/primer", icon: <Target size={18} /> },
+  { name: 'Primer', path: '/dashboard/primer', icon: <Target size={18} /> },
   {
-    name: "Billing",
-    path: "/dashboard/billing",
+    name: 'Payslips',
+    path: '/dashboard/payslips',
     icon: <CreditCard size={18} />,
   },
   {
-    name: "Settings",
-    path: "/dashboard/settings",
+    name: 'Billing',
+    path: '/dashboard/billing',
+    icon: <CreditCard size={18} />,
+  },
+  {
+    name: 'Settings',
+    path: '/dashboard/settings',
     icon: <Settings size={18} />,
   },
 ];

@@ -110,9 +110,19 @@ export async function markPayrollPaid(
     for (const itemSnap of itemsSnap.docs) {
       const item = itemSnap.data() as EmployeePayrollItem;
 
+      // ✅ Normalize deductions safely
+      const deductions = Array.isArray(item.deductions)
+        ? item.deductions
+        : [];
+
+      const deductionsTotal = deductions.reduce(
+        (sum, d) => sum + (d.amount ?? 0),
+        0
+      );
+
       const payslipId = `${runId}_${item.employeeId}`;
 
-      // Canonical payslip (company scope)
+      // --- Company-scoped payslip ---
       const payslipRef = doc(
         db,
         'companies',
@@ -130,8 +140,7 @@ export async function markPayrollPaid(
         periodEnd: run.periodEnd,
         currency: 'NGN',
         grossPay: item.grossPay,
-        deductionsTotal:
-          item.deductions?.reduce((sum, d) => sum + d.amount, 0) ?? 0,
+        deductionsTotal,
         netPay: item.netPay,
         status: 'paid',
         issuedAt: Timestamp.now(),
@@ -139,7 +148,7 @@ export async function markPayrollPaid(
 
       tx.set(payslipRef, payslip);
 
-      // 🔹 MIRROR FOR EMPLOYEE (Option A)
+      // --- Employee mirror payslip ---
       const userPayslipRef = doc(
         db,
         'users',
@@ -150,17 +159,7 @@ export async function markPayrollPaid(
 
       tx.set(userPayslipRef, {
         id: payslipId,
-        runId,
-        companyId,
-        periodStart: run.periodStart,
-        periodEnd: run.periodEnd,
-        currency: 'NGN',
-        grossPay: item.grossPay,
-        deductionsTotal:
-          item.deductions?.reduce((sum, d) => sum + d.amount, 0) ?? 0,
-        netPay: item.netPay,
-        status: 'paid',
-        issuedAt: Timestamp.now(),
+        ...payslip,
       });
     }
 
@@ -171,6 +170,7 @@ export async function markPayrollPaid(
     });
   });
 }
+
 
 
 /* ----------------------------------------

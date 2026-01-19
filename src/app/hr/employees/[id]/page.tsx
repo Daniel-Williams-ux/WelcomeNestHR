@@ -1,6 +1,5 @@
-// server component — safe to use with app router params and avoids client hooks on server
+// server component — safe with App Router
 import React from 'react';
-import HRShell from '@/components/hr/HRShell';
 import EmployeeDetailClient from '@/components/hr/EmployeeDetailClient';
 
 type Props = {
@@ -12,11 +11,5 @@ export const metadata = {
 };
 
 export default function EmployeeDetailPage({ params }: Props) {
-  const { id } = params;
-  return (
-    <HRShell>
-      {/* EmployeeDetailClient is a client component that accepts employeeId */}
-      <EmployeeDetailClient employeeId={id} />
-    </HRShell>
-  );
+  return <EmployeeDetailClient employeeId={params.id} />;
 }

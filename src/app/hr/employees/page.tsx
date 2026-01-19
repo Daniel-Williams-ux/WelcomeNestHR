@@ -5,6 +5,8 @@ import React, { useMemo, useState } from 'react';
 import { Plus, Download, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useCurrentCompany } from '@/hooks/useCurrentCompany';
 import { useEmployees, Employee } from '@/hooks/useEmployees';
+import { useRouter } from 'next/navigation';
+
 
 function Badge({ children }: { children: React.ReactNode }) {
   return (
@@ -68,6 +70,9 @@ export default function HREmployeesPage() {
   React.useEffect(() => {
     setSortOption({ field: sortField, direction: sortDirection });
   }, [sortField, sortDirection, setSortOption]);
+
+  const router = useRouter();
+
 
   // Derived lists for filter dropdowns (simple client-side collect)
   const departments = useMemo(() => {
@@ -312,14 +317,12 @@ export default function HREmployeesPage() {
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
                       <button
-                        onClick={() => {
-                          // open detail view — (for now use alert)
-                          alert(`Open employee: ${e.name}`);
-                        }}
+                        onClick={() => router.push(`/hr/employees/${e.id}`)}
                         className="text-sm px-2 py-1 rounded border bg-white"
                       >
                         View
                       </button>
+
                       <button
                         onClick={async () => {
                           if (

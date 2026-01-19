@@ -58,18 +58,18 @@ export default function HRLayout({ children }: { children: React.ReactNode }) {
       {/* SIDEBAR */}
       <aside
         className={`
-    fixed inset-y-0 left-0 z-50
-    w-64 shrink-0
-    transform transition-transform duration-200 ease-out
-    ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-    md:translate-x-0 md:static
-  `}
+          fixed inset-y-0 left-0 z-50
+          w-64 shrink-0
+          transform transition-transform duration-200 ease-out
+          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+          md:translate-x-0 md:static
+        `}
       >
         <HRSidebar onNavigate={() => setSidebarOpen(false)} />
       </aside>
 
       {/* MAIN CONTENT */}
-      <div className="flex-1 flex flex-col min-h-screen">
+      <div className="flex-1 flex flex-col min-h-screen md:ml-64">
         {/* MOBILE TOP BAR */}
         <header className="md:hidden flex items-center gap-3 p-4 border-b sticky top-0 bg-white z-30">
           <button

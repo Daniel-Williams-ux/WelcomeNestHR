@@ -8,13 +8,14 @@ import {
   DocumentData,
   updateDoc,
   serverTimestamp,
+  addDoc,
+  collection,
 } from 'firebase/firestore';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
 import {
   Edit3,
   Trash2,
-  User,
   Briefcase,
   Calendar,
   Mail,
@@ -25,6 +26,7 @@ import {
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCurrentCompany } from '@/hooks/useCurrentCompany';
+import { useOffboarding } from '@/hooks/useOffboarding';
 
 type Employee = {
   id: string;
@@ -49,6 +51,7 @@ export default function EmployeeDetailClient({
 }) {
   const router = useRouter();
   const { companyId, loading: loadingCompany } = useCurrentCompany();
+  const { startOffboarding, offboarding } = useOffboarding(employeeId);
 
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [loading, setLoading] = useState(true);
@@ -58,7 +61,7 @@ export default function EmployeeDetailClient({
     'profile' | 'job' | 'docs' | 'activity' | 'payroll'
   >('profile');
 
-  // fetch employee
+  // Fetch employee
   useEffect(() => {
     let mounted = true;
     async function fetchEmployee() {
@@ -91,7 +94,6 @@ export default function EmployeeDetailClient({
     }
 
     if (!loadingCompany) fetchEmployee();
-
     return () => {
       mounted = false;
     };
@@ -109,6 +111,55 @@ export default function EmployeeDetailClient({
       return String(v);
     } catch {
       return String(v);
+    }
+  };
+
+  // START OFFBOARDING
+  const onStartOffboarding = async () => {
+    if (!companyId || !employee) return;
+
+    // Prevent double offboarding
+    if (employee.status === 'exiting' || offboarding) {
+      alert('Offboarding is already in progress for this employee.');
+      return;
+    }
+
+    if (
+      !confirm(
+        `Start offboarding for ${
+          employee.name ?? 'this employee'
+        }? This action cannot be undone.`
+      )
+    ) {
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await startOffboarding(companyId);
+
+      const ref = doc(db, 'companies', companyId, 'employees', employee.id);
+      await updateDoc(ref, {
+        status: 'exiting',
+        updatedAt: serverTimestamp(),
+      });
+
+      // Audit log
+      await addDoc(collection(db, 'companies', companyId, 'auditLogs'), {
+        action: 'offboarding_started',
+        entityType: 'employee',
+        entityId: employee.id,
+        employeeName: employee.name ?? null,
+        performedBy: 'hr',
+        timestamp: serverTimestamp(),
+      });
+
+      router.push(`/hr/offboarding/${employee.id}`);
+    } catch (err) {
+      console.error(err);
+      alert('Failed to start offboarding.');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -176,48 +227,12 @@ export default function EmployeeDetailClient({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-4">
-        <button
-          onClick={back}
-          className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800"
-          aria-label="Back to employees"
-        >
-          <ChevronLeft size={18} /> Back
-        </button>
-
-        <div className="ml-auto flex items-center gap-3">
-          <button
-            onClick={() => setActiveTab('profile')}
-            className="px-3 py-1 rounded bg-white border text-sm"
-          >
-            Profile
-          </button>
-          <button
-            onClick={() => setActiveTab('job')}
-            className="px-3 py-1 rounded bg-white border text-sm"
-          >
-            Job
-          </button>
-          <button
-            onClick={() => setActiveTab('payroll')}
-            className="px-3 py-1 rounded bg-white border text-sm"
-          >
-            Payroll
-          </button>
-          <button
-            onClick={() => setActiveTab('docs')}
-            className="px-3 py-1 rounded bg-white border text-sm"
-          >
-            Docs
-          </button>
-          <button
-            onClick={() => setActiveTab('activity')}
-            className="px-3 py-1 rounded bg-white border text-sm"
-          >
-            Activity
-          </button>
-        </div>
-      </div>
+      <button
+        onClick={back}
+        className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800"
+      >
+        <ChevronLeft size={18} /> Back
+      </button>
 
       <motion.div
         initial={{ opacity: 0, y: 4 }}
@@ -225,285 +240,70 @@ export default function EmployeeDetailClient({
         transition={{ duration: 0.22 }}
         className="grid grid-cols-1 lg:grid-cols-3 gap-6"
       >
-        {/* left column */}
+        {/* LEFT */}
         <div className="lg:col-span-2 space-y-4">
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-            {loading ? (
-              <div className="text-sm text-gray-500">Loading employee…</div>
-            ) : error ? (
-              <div className="text-sm text-red-600">{error}</div>
-            ) : !employee ? (
-              <div className="text-sm text-gray-500">No employee data.</div>
-            ) : (
-              <div className="md:flex md:items-center md:gap-6">
-                <div className="w-28 h-28 rounded-lg overflow-hidden bg-gray-50 flex-shrink-0">
-                  <Image
-                    src={avatarSrc}
-                    alt={employee.name ?? 'Employee avatar'}
-                    width={112}
-                    height={112}
-                    style={{
-                      objectFit: 'cover',
-                      width: '100%',
-                      height: '100%',
-                    }}
-                  />
-                </div>
-
-                <div className="mt-3 md:mt-0 flex-1">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="text-2xl font-semibold text-gray-900">
-                        {employee.name ?? '—'}
-                      </div>
-                      <div className="text-sm text-gray-500 mt-1 flex gap-3 items-center">
-                        <Briefcase size={14} /> {employee.title ?? '—'} •{' '}
-                        {employee.department ?? '—'}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => alert('Open edit drawer (TBD)')}
-                        className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-[#FFB300] text-white text-sm shadow-sm"
-                      >
-                        <Edit3 size={14} /> Edit
-                      </button>
-                      <button
-                        onClick={onDelete}
-                        disabled={saving}
-                        className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-white border text-sm text-red-600"
-                        aria-label="Delete employee"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
+          <div className="bg-white rounded-2xl p-6 border">
+            {employee && (
+              <div className="flex gap-6">
+                <Image
+                  src={avatarSrc}
+                  alt={employee.name ?? 'Employee'}
+                  width={112}
+                  height={112}
+                />
+                <div className="flex-1">
+                  <div className="text-2xl font-semibold">{employee.name}</div>
+                  <div className="text-sm text-gray-500 flex items-center gap-2">
+                    <Briefcase size={14} />
+                    {employee.title} • {employee.department}
                   </div>
 
-                  <div className="mt-4 grid grid-cols-2 gap-3 text-sm text-gray-600">
-                    <div className="flex items-center gap-2">
-                      <Mail size={14} /> <span>{employee.email ?? '—'}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Phone size={14} /> <span>{employee.phone ?? '—'}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Calendar size={14} />{' '}
-                      <span>Start: {formatDate(employee.startDate)}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Calendar size={14} />{' '}
-                      <span>End: {formatDate(employee.endDate)}</span>
-                    </div>
+                  <div className="mt-3 flex gap-2">
+                    {employee.status === 'Active' && (
+                      <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-700">
+                        Active
+                      </span>
+                    )}
+                    {employee.status === 'exiting' && (
+                      <span className="px-2 py-1 rounded-full text-xs bg-orange-100 text-orange-700">
+                        Exiting
+                      </span>
+                    )}
+                    {employee.status === 'Exited' && (
+                      <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-700">
+                        Exited
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
             )}
           </div>
-
-          {/* Details card */}
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-            <h3 className="font-semibold text-gray-800 mb-2">About</h3>
-            <p className="text-sm text-gray-600">
-              This page shows the employee's profile, job & compensation
-              details, payroll history and documents.
-            </p>
-
-            {/* TAB CONTENT */}
-            <div className="mt-4">
-              {activeTab === 'profile' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <div className="text-xs text-gray-500">
-                      Employment status
-                    </div>
-                    <div className="mt-1">{employee?.status ?? '—'}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-gray-500">Employee since</div>
-                    <div className="mt-1">
-                      {formatDate(employee?.createdAt)}
-                    </div>
-                  </div>
-                  <div className="md:col-span-2">
-                    <div className="text-xs text-gray-500">Notes</div>
-                    <div className="mt-1 text-sm text-gray-600">
-                      {(employee &&
-                        (employee.notes ?? 'No notes available.')) ||
-                        'No notes available.'}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {activeTab === 'job' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <div className="text-xs text-gray-500">Job title</div>
-                    <div className="mt-1">{employee?.title ?? '—'}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-gray-500">Department</div>
-                    <div className="mt-1">{employee?.department ?? '—'}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-gray-500">Compensation</div>
-                    <div className="mt-1">
-                      {employee?.salary
-                        ? `$${Number(employee.salary).toLocaleString()}`
-                        : '—'}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-gray-500">Manager</div>
-                    <div className="mt-1">{employee?.managerName ?? '—'}</div>
-                  </div>
-                </div>
-              )}
-
-              {activeTab === 'payroll' && (
-                <div className="space-y-2">
-                  <div className="text-sm text-gray-600">
-                    Payroll history (latest runs)
-                  </div>
-                  <ul className="mt-3 divide-y">
-                    {/* Placeholder — wire to collection companies/{companyId}/payrolls filtered by employeeId */}
-                    <li className="py-3 flex justify-between items-center">
-                      <div>
-                        <div className="text-sm font-medium">Nov 15, 2025</div>
-                        <div className="text-xs text-gray-500">
-                          Semi-monthly run
-                        </div>
-                      </div>
-                      <div>
-                        <span className="px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-700">
-                          Pending
-                        </span>
-                      </div>
-                    </li>
-                    <li className="py-3 flex justify-between items-center">
-                      <div>
-                        <div className="text-sm font-medium">Oct 31, 2025</div>
-                        <div className="text-xs text-gray-500">
-                          Semi-monthly run
-                        </div>
-                      </div>
-                      <div>
-                        <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-700">
-                          Completed
-                        </span>
-                      </div>
-                    </li>
-                  </ul>
-                </div>
-              )}
-
-              {activeTab === 'docs' && (
-                <div className="space-y-3">
-                  <div className="text-sm text-gray-600">
-                    Employee documents
-                  </div>
-                  <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <a
-                      className="bg-gray-50 p-3 rounded border flex items-center justify-between"
-                      href="#"
-                    >
-                      <div className="flex items-center gap-3">
-                        <FileText size={18} />
-                        <div>
-                          <div className="text-sm font-medium">
-                            Offer Letter
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            PDF • 32KB
-                          </div>
-                        </div>
-                      </div>
-                      <Download size={16} />
-                    </a>
-
-                    <a
-                      className="bg-gray-50 p-3 rounded border flex items-center justify-between"
-                      href="#"
-                    >
-                      <div className="flex items-center gap-3">
-                        <FileText size={18} />
-                        <div>
-                          <div className="text-sm font-medium">ID Card</div>
-                          <div className="text-xs text-gray-500">
-                            PNG • 120KB
-                          </div>
-                        </div>
-                      </div>
-                      <Download size={16} />
-                    </a>
-                  </div>
-                </div>
-              )}
-
-              {activeTab === 'activity' && (
-                <div className="text-sm text-gray-600">
-                  Recent activity is captured here. (Activity logging
-                  integration TBD.)
-                </div>
-              )}
-            </div>
-          </div>
         </div>
 
-        {/* right column */}
+        {/* RIGHT */}
         <aside className="space-y-4">
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-xs text-gray-500">Quick Actions</div>
-              </div>
-            </div>
+          <div className="bg-white rounded-2xl p-4 border">
+            <div className="text-xs text-gray-500">Quick Actions</div>
 
             <div className="mt-3 flex flex-col gap-2">
-              <button
-                onClick={() => alert('Open Edit modal (TBD)')}
-                className="px-3 py-2 rounded border text-sm"
-              >
-                Edit profile
-              </button>
+              {employee?.status === 'Active' && !offboarding && (
+                <button
+                  onClick={onStartOffboarding}
+                  disabled={saving}
+                  className="px-3 py-2 rounded bg-red-600 text-white"
+                >
+                  Start Offboarding
+                </button>
+              )}
+
               <button
                 onClick={onTerminate}
                 disabled={saving}
-                className="px-3 py-2 rounded border text-sm bg-white text-yellow-700"
+                className="px-3 py-2 rounded border text-yellow-700"
               >
                 Terminate employee
               </button>
-              <button
-                onClick={() => alert('Export profile CSV (TBD)')}
-                className="px-3 py-2 rounded bg-[#00ACC1] text-white text-sm"
-              >
-                Export profile
-              </button>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-            <div className="text-xs text-gray-500">Meta</div>
-            <div className="mt-2 text-sm text-gray-700">
-              <div>
-                <strong>ID</strong>{' '}
-                <div className="text-xs text-gray-500">
-                  {employee?.id ?? '—'}
-                </div>
-              </div>
-              <div className="mt-2">
-                <strong>Created</strong>{' '}
-                <div className="text-xs text-gray-500">
-                  {formatDate(employee?.createdAt)}
-                </div>
-              </div>
-              <div className="mt-2">
-                <strong>Status</strong>{' '}
-                <div className="text-xs text-gray-500">
-                  {employee?.status ?? '—'}
-                </div>
-              </div>
             </div>
           </div>
         </aside>
