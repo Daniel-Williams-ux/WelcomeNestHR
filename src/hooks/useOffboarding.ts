@@ -4,170 +4,206 @@ import {
   collection,
   getDoc,
   getDocs,
-  setDoc,
   updateDoc,
   Timestamp,
+  setDoc,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/hooks/useAuth';
+import {
+  startOffboarding as startOffboardingAction,
+  completeOffboardingTask,
+} from '@/lib/offboarding';
+import { OFFBOARDING_CHECKLIST_V1 } from '@/constants/offboardingChecklist';
 
-export type OffboardingStatus = 'initiated' | 'in_progress' | 'completed';
-
-export interface Offboarding {
-  userId: string;
-  companyId: string;
-  status: OffboardingStatus;
-  initiatedBy: string;
-  initiatedAt: Timestamp;
-  completedAt?: Timestamp;
+export interface OffboardingRecord {
+  status: 'in_progress' | 'completed';
+  startedAt: unknown;
+  completedAt?: unknown;
+  checklistVersion: number;
 }
 
 export interface OffboardingTask {
   id: string;
+  key: string;
   title: string;
   description?: string;
-  assignedTo: 'employee' | 'hr';
+  order: number;
   completed: boolean;
-  completedAt?: Timestamp;
-  createdAt: Timestamp;
+  completedAt?: unknown;
 }
 
-export function useOffboarding(targetUserId: string) {
+export function useOffboarding(employeeId: string) {
   const { user } = useAuth();
-  const [offboarding, setOffboarding] = useState<Offboarding | null>(null);
+
+  const [offboarding, setOffboarding] = useState<OffboardingRecord | null>(
+    null,
+  );
   const [tasks, setTasks] = useState<OffboardingTask[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  // ------------------------------------------------
-  // Load offboarding + tasks
-  // ------------------------------------------------
+  /**
+   * ------------------------------------------------------
+   * LOAD DATA (SINGLE SOURCE OF TRUTH)
+   * ------------------------------------------------------
+   */
   useEffect(() => {
-    if (!user || !targetUserId) return;
+    if (!user || !user.companyId || !employeeId) return;
 
     async function load() {
-      try {
-        setLoading(true);
+      setLoading(true);
 
-        const offboardingRef = doc(db, 'users', targetUserId, 'offboarding');
+      const companyId = user.companyId;
 
-        const offboardingSnap = await getDoc(offboardingRef);
+      const offboardingRef = doc(
+        db,
+        'companies',
+        companyId,
+        'employees',
+        employeeId,
+        'offboarding',
+        'record',
+      );
 
-        if (!offboardingSnap.exists()) {
-          setOffboarding(null);
-          setTasks([]);
-          return;
+      const offboardingSnap = await getDoc(offboardingRef);
+
+      if (!offboardingSnap.exists()) {
+        setOffboarding(null);
+        setTasks([]);
+        setLoading(false);
+        return;
+      }
+
+      const offboardingData = offboardingSnap.data() as OffboardingRecord;
+      setOffboarding(offboardingData);
+
+      const tasksCol = collection(
+        db,
+        'companies',
+        companyId,
+        'employees',
+        employeeId,
+        'offboardingTasks',
+      );
+
+      let tasksSnap = await getDocs(tasksCol);
+
+      /**
+       * 🔐 GUARANTEE TASKS EXIST
+       * If offboarding exists but tasks are missing,
+       * automatically seed checklist (idempotent).
+       */
+      if (tasksSnap.empty) {
+        for (const task of OFFBOARDING_CHECKLIST_V1) {
+          await setDoc(doc(tasksCol), {
+            ...task,
+            completed: false,
+            createdAt: Timestamp.now(),
+          });
         }
 
-        const offboardingData = offboardingSnap.data() as Offboarding;
-        setOffboarding(offboardingData);
+        // Re-fetch after seeding
+        tasksSnap = await getDocs(tasksCol);
+      }
 
-        const tasksRef = collection(
-          db,
-          'users',
-          targetUserId,
-          'offboarding',
-          'tasks'
-        );
-
-        const tasksSnap = await getDocs(tasksRef);
-
-        const taskList: OffboardingTask[] = tasksSnap.docs.map((d) => ({
+      const list: OffboardingTask[] = tasksSnap.docs
+        .map((d) => ({
           id: d.id,
           ...(d.data() as Omit<OffboardingTask, 'id'>),
-        }));
+        }))
+        .sort((a, b) => a.order - b.order);
 
-        setTasks(taskList);
-      } catch (err) {
-        console.error(err);
-        setError('Failed to load offboarding data.');
-      } finally {
-        setLoading(false);
-      }
+      setTasks(list);
+      setLoading(false);
     }
 
     load();
-  }, [user, targetUserId]);
+  }, [user, employeeId]);
 
-  // ------------------------------------------------
-  // HR: Start Offboarding
-  // ------------------------------------------------
+  /**
+   * ------------------------------------------------------
+   * ACTIONS
+   * ------------------------------------------------------
+   */
   async function startOffboarding(companyId: string) {
     if (!user) throw new Error('Not authenticated');
-
-    const offboardingRef = doc(db, 'users', targetUserId, 'offboarding');
-
-    await setDoc(offboardingRef, {
-      userId: targetUserId,
-      companyId,
-      status: 'initiated',
-      initiatedBy: user.uid,
-      initiatedAt: Timestamp.now(),
-    });
-
-    const defaultTasks = [
-      { title: 'Return company assets', assignedTo: 'employee' },
-      { title: 'Handover documentation', assignedTo: 'employee' },
-      { title: 'Final payroll processed', assignedTo: 'hr' },
-      { title: 'Disable system access', assignedTo: 'hr' },
-    ];
-
-    for (const task of defaultTasks) {
-      const taskRef = doc(
-        collection(db, 'users', targetUserId, 'offboarding', 'tasks')
-      );
-
-      await setDoc(taskRef, {
-        title: task.title,
-        assignedTo: task.assignedTo,
-        completed: false,
-        createdAt: Timestamp.now(),
-      });
-    }
+    await startOffboardingAction(companyId, employeeId, user.uid);
   }
 
-  // ------------------------------------------------
-  // Employee / HR: Complete Task
-  // ------------------------------------------------
+  /**
+   * ------------------------------------------------------
+   * COMPLETE SINGLE TASK (OPTIMISTIC)
+   * ------------------------------------------------------
+   */
   async function completeTask(taskId: string) {
-    const taskRef = doc(
-      db,
-      'users',
-      targetUserId,
-      'offboarding',
-      'tasks',
-      taskId
+    if (!user || !user.companyId) {
+      throw new Error('Not authenticated');
+    }
+
+    // Optimistic UI update
+    setTasks((prev) =>
+      prev.map((task) =>
+        task.id === taskId
+          ? {
+              ...task,
+              completed: true,
+              completedAt: Timestamp.now(),
+            }
+          : task,
+      ),
     );
 
-    await updateDoc(taskRef, {
-      completed: true,
-      completedAt: Timestamp.now(),
-    });
+    await completeOffboardingTask(user.companyId, employeeId, taskId, user.uid);
   }
 
-  // ------------------------------------------------
-  // HR: Complete Offboarding (logic gate later)
-  // ------------------------------------------------
-  async function completeOffboarding() {
-    if (!user) throw new Error('Not authenticated');
+  /**
+   * ------------------------------------------------------
+   * FINALIZE OFFBOARDING
+   * ------------------------------------------------------
+   */
+  async function finalizeOffboarding() {
+    if (!user || !user.companyId) {
+      throw new Error('Not authenticated');
+    }
 
-    const offboardingRef = doc(db, 'users', targetUserId, 'offboarding');
+    if (tasks.some((t) => !t.completed)) {
+      throw new Error(
+        'All tasks must be completed before finalizing offboarding.',
+      );
+    }
 
-    await updateDoc(offboardingRef, {
-      status: 'completed',
-      completedAt: Timestamp.now(),
+    const companyId = user.companyId;
+
+    await updateDoc(
+      doc(
+        db,
+        'companies',
+        companyId,
+        'employees',
+        employeeId,
+        'offboarding',
+        'record',
+      ),
+      {
+        status: 'completed',
+        completedAt: Timestamp.now(),
+      },
+    );
+
+    await updateDoc(doc(db, 'companies', companyId, 'employees', employeeId), {
+      status: 'Exited',
+      exitedAt: Timestamp.now(),
     });
+
+    setOffboarding((prev) => (prev ? { ...prev, status: 'completed' } : prev));
   }
 
   return {
     offboarding,
     tasks,
     loading,
-    error,
-
-    // actions
     startOffboarding,
     completeTask,
-    completeOffboarding,
+    finalizeOffboarding,
   };
 }

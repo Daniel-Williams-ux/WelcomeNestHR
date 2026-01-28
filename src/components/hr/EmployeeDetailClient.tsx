@@ -8,22 +8,10 @@ import {
   DocumentData,
   updateDoc,
   serverTimestamp,
-  addDoc,
-  collection,
 } from 'firebase/firestore';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
-import {
-  Edit3,
-  Trash2,
-  Briefcase,
-  Calendar,
-  Mail,
-  Phone,
-  Download,
-  FileText,
-  ChevronLeft,
-} from 'lucide-react';
+import { Briefcase, ChevronLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCurrentCompany } from '@/hooks/useCurrentCompany';
 import { useOffboarding } from '@/hooks/useOffboarding';
@@ -57,25 +45,27 @@ export default function EmployeeDetailClient({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<
-    'profile' | 'job' | 'docs' | 'activity' | 'payroll'
-  >('profile');
 
   // Fetch employee
   useEffect(() => {
     let mounted = true;
+
     async function fetchEmployee() {
       setLoading(true);
       setError(null);
+
       if (!companyId) {
         setError('No company assigned.');
         setLoading(false);
         return;
       }
+
       try {
         const ref = doc(db, 'companies', companyId, 'employees', employeeId);
         const snap = await getDoc(ref);
+
         if (!mounted) return;
+
         if (!snap.exists()) {
           setError('Employee not found.');
           setEmployee(null);
@@ -99,120 +89,29 @@ export default function EmployeeDetailClient({
     };
   }, [companyId, employeeId, loadingCompany]);
 
-  const formatDate = (v?: unknown) => {
-    try {
-      if (!v) return '—';
-      if (typeof v === 'string') return new Date(v).toLocaleDateString();
-      if (v && typeof v === 'object' && 'seconds' in (v as any)) {
-        const t = v as any;
-        return new Date(t.seconds * 1000).toLocaleDateString();
-      }
-      if (v instanceof Date) return v.toLocaleDateString();
-      return String(v);
-    } catch {
-      return String(v);
-    }
-  };
-
-  // START OFFBOARDING
+  // START OFFBOARDING (LOCKED SAFELY)
   const onStartOffboarding = async () => {
     if (!companyId || !employee) return;
 
-    // Prevent double offboarding
+    if (employee.status === 'exited') {
+      alert('This employee has already been exited.');
+      return;
+    }
+
     if (employee.status === 'exiting' || offboarding) {
-      alert('Offboarding is already in progress for this employee.');
-      return;
-    }
-
-    if (
-      !confirm(
-        `Start offboarding for ${
-          employee.name ?? 'this employee'
-        }? This action cannot be undone.`
-      )
-    ) {
-      return;
-    }
-
-    setSaving(true);
-    try {
-      await startOffboarding(companyId);
-
-      const ref = doc(db, 'companies', companyId, 'employees', employee.id);
-      await updateDoc(ref, {
-        status: 'exiting',
-        updatedAt: serverTimestamp(),
-      });
-
-      // Audit log
-      await addDoc(collection(db, 'companies', companyId, 'auditLogs'), {
-        action: 'offboarding_started',
-        entityType: 'employee',
-        entityId: employee.id,
-        employeeName: employee.name ?? null,
-        performedBy: 'hr',
-        timestamp: serverTimestamp(),
-      });
-
       router.push(`/hr/offboarding/${employee.id}`);
-    } catch (err) {
-      console.error(err);
+      return;
+    }
+
+    if (!confirm(`Start offboarding for ${employee.name}?`)) return;
+
+    setSaving(true);
+    try {
+      await startOffboarding(companyId, employee.id, 'hr');
+      router.push(`/hr/offboarding/${employee.id}`);
+    } catch (e) {
+      console.error(e);
       alert('Failed to start offboarding.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const onTerminate = async () => {
-    if (!companyId || !employee) return;
-    if (
-      !confirm(
-        `Are you sure you want to terminate ${
-          employee.name ?? 'this employee'
-        }?`
-      )
-    )
-      return;
-
-    setSaving(true);
-    try {
-      const ref = doc(db, 'companies', companyId, 'employees', employee.id);
-      await updateDoc(ref, {
-        status: 'Exited',
-        endDate: new Date().toISOString(),
-        updatedAt: serverTimestamp(),
-      });
-      setEmployee((s) =>
-        s ? { ...s, status: 'Exited', endDate: new Date().toISOString() } : s
-      );
-      alert('Employee terminated.');
-    } catch (err) {
-      console.error(err);
-      alert('Failed to terminate employee.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const onDelete = async () => {
-    if (!companyId || !employee) return;
-    if (
-      !confirm(
-        `Permanently delete ${
-          employee.name ?? 'this employee'
-        }? This cannot be undone.`
-      )
-    )
-      return;
-    setSaving(true);
-    try {
-      const ref = doc(db, 'companies', companyId, 'employees', employee.id);
-      await updateDoc(ref, { deletedAt: serverTimestamp() });
-      alert('Employee removed (soft-deleted).');
-      router.push('/hr/employees');
-    } catch (err) {
-      console.error(err);
-      alert('Failed to delete employee.');
     } finally {
       setSaving(false);
     }
@@ -225,6 +124,16 @@ export default function EmployeeDetailClient({
     [employee]
   );
 
+  if (loading) {
+    return <div className="p-6">Loading employee…</div>;
+  }
+
+  if (error || !employee) {
+    return <div className="p-6 text-sm text-gray-600">{error}</div>;
+  }
+
+  const isExited = employee.status === 'Exited' || employee.status === 'exited';
+
   return (
     <div className="space-y-6">
       <button
@@ -233,6 +142,12 @@ export default function EmployeeDetailClient({
       >
         <ChevronLeft size={18} /> Back
       </button>
+
+      {isExited && (
+        <div className="p-4 rounded-lg bg-gray-50 border text-sm text-gray-700">
+          This employee has been exited. Their record is now read-only.
+        </div>
+      )}
 
       <motion.div
         initial={{ opacity: 0, y: 4 }}
@@ -243,41 +158,39 @@ export default function EmployeeDetailClient({
         {/* LEFT */}
         <div className="lg:col-span-2 space-y-4">
           <div className="bg-white rounded-2xl p-6 border">
-            {employee && (
-              <div className="flex gap-6">
-                <Image
-                  src={avatarSrc}
-                  alt={employee.name ?? 'Employee'}
-                  width={112}
-                  height={112}
-                />
-                <div className="flex-1">
-                  <div className="text-2xl font-semibold">{employee.name}</div>
-                  <div className="text-sm text-gray-500 flex items-center gap-2">
-                    <Briefcase size={14} />
-                    {employee.title} • {employee.department}
-                  </div>
+            <div className="flex gap-6">
+              <Image
+                src={avatarSrc}
+                alt={employee.name ?? 'Employee'}
+                width={112}
+                height={112}
+              />
+              <div className="flex-1">
+                <div className="text-2xl font-semibold">{employee.name}</div>
+                <div className="text-sm text-gray-500 flex items-center gap-2">
+                  <Briefcase size={14} />
+                  {employee.title} • {employee.department}
+                </div>
 
-                  <div className="mt-3 flex gap-2">
-                    {employee.status === 'Active' && (
-                      <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-700">
-                        Active
-                      </span>
-                    )}
-                    {employee.status === 'exiting' && (
-                      <span className="px-2 py-1 rounded-full text-xs bg-orange-100 text-orange-700">
-                        Exiting
-                      </span>
-                    )}
-                    {employee.status === 'Exited' && (
-                      <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-700">
-                        Exited
-                      </span>
-                    )}
-                  </div>
+                <div className="mt-3 flex gap-2">
+                  {employee.status === 'Active' && (
+                    <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-700">
+                      Active
+                    </span>
+                  )}
+                  {employee.status === 'exiting' && (
+                    <span className="px-2 py-1 rounded-full text-xs bg-orange-100 text-orange-700">
+                      Exiting
+                    </span>
+                  )}
+                  {isExited && (
+                    <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-700">
+                      Exited
+                    </span>
+                  )}
                 </div>
               </div>
-            )}
+            </div>
           </div>
         </div>
 
@@ -287,23 +200,17 @@ export default function EmployeeDetailClient({
             <div className="text-xs text-gray-500">Quick Actions</div>
 
             <div className="mt-3 flex flex-col gap-2">
-              {employee?.status === 'Active' && !offboarding && (
+              {!isExited && (
                 <button
                   onClick={onStartOffboarding}
                   disabled={saving}
                   className="px-3 py-2 rounded bg-red-600 text-white"
                 >
-                  Start Offboarding
+                  {employee.status === 'exiting'
+                    ? 'View Offboarding'
+                    : 'Start Offboarding'}
                 </button>
               )}
-
-              <button
-                onClick={onTerminate}
-                disabled={saving}
-                className="px-3 py-2 rounded border text-yellow-700"
-              >
-                Terminate employee
-              </button>
             </div>
           </div>
         </aside>
