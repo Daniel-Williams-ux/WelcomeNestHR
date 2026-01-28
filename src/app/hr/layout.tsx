@@ -16,7 +16,6 @@ export default function HRLayout({ children }: { children: React.ReactNode }) {
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Access guard
   useEffect(() => {
     if (!accessLoading && role && role !== 'hr') {
       router.replace('/dashboard');
@@ -45,7 +44,7 @@ export default function HRLayout({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-screen bg-white">
+    <div className="min-h-screen bg-white">
       {/* MOBILE OVERLAY */}
       {sidebarOpen && (
         <div
@@ -58,20 +57,20 @@ export default function HRLayout({ children }: { children: React.ReactNode }) {
       {/* SIDEBAR */}
       <aside
         className={`
-          fixed inset-y-0 left-0 z-50
-          w-64 shrink-0
+          fixed inset-y-0 left-0 z-50 w-64
+          bg-[#004d59]
           transform transition-transform duration-200 ease-out
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-          md:translate-x-0 md:static
+          md:translate-x-0
         `}
       >
         <HRSidebar onNavigate={() => setSidebarOpen(false)} />
       </aside>
 
-      {/* MAIN CONTENT */}
-      <div className="flex-1 flex flex-col min-h-screen md:ml-64">
-        {/* MOBILE TOP BAR */}
-        <header className="md:hidden flex items-center gap-3 p-4 border-b sticky top-0 bg-white z-30">
+      {/* MAIN */}
+      <div className="flex flex-col min-h-screen md:ml-64">
+        {/* MOBILE TOPBAR */}
+        <header className="md:hidden sticky top-0 z-30 flex items-center gap-3 p-4 border-b bg-white">
           <button
             aria-label="Open menu"
             onClick={() => setSidebarOpen(true)}
@@ -79,16 +78,15 @@ export default function HRLayout({ children }: { children: React.ReactNode }) {
           >
             <Menu size={22} />
           </button>
-
           <span className="font-semibold">HR Dashboard</span>
         </header>
 
-        {/* DESKTOP TOP BAR */}
+        {/* DESKTOP TOPBAR */}
         <div className="hidden md:block">
           <HRTopbar />
         </div>
 
-        <main className="p-4 md:p-6">{children}</main>
+        <main className="flex-1 w-full p-4 md:p-6">{children}</main>
       </div>
     </div>
   );
