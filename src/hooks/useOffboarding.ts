@@ -9,7 +9,7 @@ import {
   setDoc,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { useAuth } from '@/hooks/useAuth';
+import { useUserAccess } from '@/hooks/useUserAccess';
 import {
   startOffboarding as startOffboardingAction,
   completeOffboardingTask,
@@ -34,7 +34,7 @@ export interface OffboardingTask {
 }
 
 export function useOffboarding(employeeId: string) {
-  const { user } = useAuth();
+  const { user } = useUserAccess();
 
   const [offboarding, setOffboarding] = useState<OffboardingRecord | null>(
     null,

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { useAuth } from '@/hooks/useAuth';
+import { useUserAccess } from '@/hooks/useUserAccess';
 import { useOffboarding } from '@/hooks/useOffboarding';
 
 export default function HROffboardingManagementPage() {
@@ -10,7 +10,7 @@ export default function HROffboardingManagementPage() {
   const params = useParams();
   const employeeId = params.employeeId as string;
 
-  const { user } = useAuth();
+  const { user } = useUserAccess();
   const { offboarding, tasks, loading, completeTask, finalizeOffboarding } =
     useOffboarding(employeeId);
 
@@ -23,7 +23,7 @@ export default function HROffboardingManagementPage() {
 
   const completedCount = useMemo(
     () => tasks.filter((t) => t.completed).length,
-    [tasks]
+    [tasks],
   );
 
   const progressPercent = useMemo(() => {

@@ -1,11 +1,11 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
-import { Coffee, Mail } from "lucide-react";
-import { doc, getDoc, onSnapshot } from "firebase/firestore";
-import { db } from "@/lib/firebase"; // adjust if your firebase config path differs
-import { useAuth } from "@/hooks/useAuth"; // assuming you already have a hook to get current user
+import { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
+import { Coffee, Mail } from 'lucide-react';
+import { doc, getDoc, onSnapshot } from 'firebase/firestore';
+import { db } from '@/lib/firebase'; // adjust if your firebase config path differs
+import { useUserAccess } from '@/hooks/useUserAccess'; // assuming you already have a hook to get current user
 
 interface Buddy {
   name: string;
@@ -15,14 +15,14 @@ interface Buddy {
 }
 
 export default function BuddyCard({ orgId }: { orgId: string }) {
-  const { user } = useAuth();
+  const { user } = useUserAccess();
   const [buddy, setBuddy] = useState<Buddy | null>(null);
 
   useEffect(() => {
     if (!user || !orgId) return;
 
     // Path: organizations/{orgId}/buddies/{userId}
-    const buddyRef = doc(db, "organizations", orgId, "buddies", user.uid);
+    const buddyRef = doc(db, 'organizations', orgId, 'buddies', user.uid);
 
     const unsubscribe = onSnapshot(buddyRef, (snapshot) => {
       if (snapshot.exists()) {

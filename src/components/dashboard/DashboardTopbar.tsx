@@ -10,7 +10,7 @@ import { useTheme } from "next-themes";
 
 export default function DashboardTopbar() {
   const router = useRouter();
-  const { user, plan, trialDaysLeft } = useUserAccess();
+ const { user, plan, trialDaysLeft, role } = useUserAccess();
   const [avatarOpen, setAvatarOpen] = useState(false);
   const { setTheme, resolvedTheme } = useTheme();
 
@@ -36,11 +36,15 @@ export default function DashboardTopbar() {
   };
 
   const getInitials = () => {
-    if (!user?.displayName) return "U";
-    return user.displayName
-      .split(" ")
-      .map((word) => word[0])
-      .join("")
+    const name = user?.fullName ?? user?.displayName;
+
+    if (!name) return 'U';
+
+    return name
+      .trim()
+      .split(' ')
+      .map((word: string) => word[0])
+      .join('')
       .slice(0, 2)
       .toUpperCase();
   };
@@ -60,18 +64,20 @@ export default function DashboardTopbar() {
       </Link>
 
       {/* Center Section (Plan Info) */}
-      <div className="hidden md:flex flex-col items-center text-sm text-gray-700 dark:text-gray-300">
-        {plan === "platinum" ? (
-          <span className="font-medium text-[#FB8C00]">Platinum Plan</span>
-        ) : (
-          <span>
-            Trial –{" "}
-            <span className="text-red-500 font-semibold">
-              {trialDaysLeft ?? "?"} days left
+      {role !== 'employee' && (
+        <div className="hidden md:flex flex-col items-center text-sm text-gray-700 dark:text-gray-300">
+          {plan === 'platinum' ? (
+            <span className="font-medium text-[#FB8C00]">Platinum Plan</span>
+          ) : (
+            <span>
+              Trial –{' '}
+              <span className="text-red-500 font-semibold">
+                {trialDaysLeft ?? '?'} days left
+              </span>
             </span>
-          </span>
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
       {/* Right Section */}
       <div className="flex items-center gap-4 relative">
@@ -84,7 +90,7 @@ export default function DashboardTopbar() {
           className="text-gray-700 dark:text-gray-300 hover:text-[#00ACC1] transition"
           title="Toggle theme"
         >
-          {resolvedTheme === "dark" ? (
+          {resolvedTheme === 'dark' ? (
             <Sun className="w-5 h-5" />
           ) : (
             <Moon className="w-5 h-5" />
@@ -96,7 +102,7 @@ export default function DashboardTopbar() {
           <button
             onClick={() => setAvatarOpen((prev) => !prev)}
             className="flex items-center gap-1 bg-[#00ACC1] text-white w-8 h-8 rounded-full justify-center font-semibold text-sm focus:outline-none"
-            title={user?.displayName ?? "User"}
+            title={user?.fullName ?? user?.displayName ?? 'User'}
           >
             {getInitials()}
             <ChevronDown className="w-3 h-3 ml-1" />

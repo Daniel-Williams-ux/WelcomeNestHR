@@ -15,7 +15,7 @@ import SuperAdminTopbar from '@/components/superadmin/SuperAdminTopbar';
 import StatCard from '@/components/superadmin/StatCard';
 
 import { Building2, Users, CreditCard, BarChart3 } from 'lucide-react';
-//console.log('🔥 SUPERADMIN OVERVIEW FILE LOADED');
+//console.log(' SUPERADMIN OVERVIEW FILE LOADED');
 
 export default function SuperAdminOverview() {
   const [companies, setCompanies] = useState<any[]>([]);

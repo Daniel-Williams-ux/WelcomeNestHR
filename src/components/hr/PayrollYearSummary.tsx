@@ -3,10 +3,10 @@
 import { useEffect, useState } from 'react';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { useAuth } from '@/hooks/useAuth';
+import { useUserAccess } from '@/hooks/useUserAccess';
 
 export default function PayrollYearSummary() {
-  const { user } = useAuth();
+  const { user } = useUserAccess();
   const companyId = user?.companyId;
   const currentYear = new Date().getFullYear();
 

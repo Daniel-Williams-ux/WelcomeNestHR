@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { useAuth } from '@/hooks/useAuth';
+import { useUserAccess } from '@/hooks/useUserAccess';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -19,7 +19,7 @@ import { useRouter } from 'next/navigation';
 import PayrollYearSummary from '@/components/hr/PayrollYearSummary';
 
 export default function HRPayrollPage() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading } = useUserAccess();
   const router = useRouter();
   const companyId = user?.companyId;
 
@@ -35,11 +35,11 @@ export default function HRPayrollPage() {
 
     const q = query(
       collection(db, 'companies', companyId, 'payrollRuns'),
-      orderBy('createdAt', 'desc')
+      orderBy('createdAt', 'desc'),
     );
 
     return onSnapshot(q, (snap) => {
-      setRuns(snap.docs.map((d) => ({ id: d.id, ...d.data() } as PayrollRun)));
+      setRuns(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as PayrollRun));
       setLoading(false);
     });
   }, [companyId]);
@@ -64,9 +64,7 @@ export default function HRPayrollPage() {
    * - Paid payrolls are historical (max 5)
    */
 
- const activeRun = runs.find((r) => r.status !== 'paid') ?? null;
-
-
+  const activeRun = runs.find((r) => r.status !== 'paid') ?? null;
 
   const paidRuns = runs.filter((r) => r.status === 'paid').slice(0, 5);
 

@@ -1,11 +1,11 @@
 'use client';
 
 import { useCurrentCompany } from '@/hooks/useCurrentCompany';
-import { useAuth } from '@/hooks/useAuth';
+import { useUserAccess } from '@/hooks/useUserAccess';
 
 export default function HRTopbar() {
   const { company } = useCurrentCompany();
-  const { user } = useAuth();
+  const { user } = useUserAccess();
 
   const initial = user?.displayName?.charAt(0) || user?.email?.charAt(0) || 'U';
 

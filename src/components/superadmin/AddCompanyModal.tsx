@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { db } from '@/lib/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { Timestamp } from 'firebase/firestore';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -29,18 +30,30 @@ export default function AddCompanyModal({
     }
 
     setLoading(true);
+
     try {
+      const trialDurationDays = 14;
+
+      let trialEndsAt = null;
+
+      if (plan === 'Trial') {
+        const now = new Date();
+        now.setDate(now.getDate() + trialDurationDays);
+        trialEndsAt = Timestamp.fromDate(now);
+      }
+
       await addDoc(collection(db, 'companies'), {
-        name,
+        name: name.trim(),
         plan,
+        trialEndsAt: trialEndsAt ? trialEndsAt : null,
         employeeCount: 0,
-        modulesEnabled: [],
         createdAt: serverTimestamp(),
         status: 'Active',
       });
 
       toast({ title: 'Company added successfully' });
       setName('');
+      setPlan('Trial');
       onAdded();
       onClose();
     } catch (err) {

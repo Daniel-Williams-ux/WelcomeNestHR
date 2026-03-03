@@ -2,7 +2,7 @@
 
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { useAuth } from '@/hooks/useAuth';
+import { useUserAccess } from '@/hooks/useUserAccess';
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,7 @@ import { useRouter } from 'next/navigation';
 export default function PayslipViewPage() {
   const { id } = useParams();
   const router = useRouter();
-  const { user } = useAuth();
+  const { user } = useUserAccess();
   const [payslip, setPayslip] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 

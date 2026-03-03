@@ -1,8 +1,10 @@
+// src/app/layout.tsx
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import ThemeClientWrapper from '@/components/ThemeClientWrapper';
 import ClientLayout from '@/components/ClientLayout';
+import { AuthProvider } from '@/components/AuthProvider';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -27,14 +29,13 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
+        suppressHydrationWarning
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <ThemeClientWrapper>
-          <ClientLayout>
-            <div className="w-full max-w-full overflow-x-hidden">
-              {children}
-            </div>
-          </ClientLayout>
+          <AuthProvider>
+            <ClientLayout>{children}</ClientLayout>
+          </AuthProvider>
         </ThemeClientWrapper>
       </body>
     </html>

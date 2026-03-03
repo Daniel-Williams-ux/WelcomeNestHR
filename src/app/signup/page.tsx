@@ -82,19 +82,41 @@ export default function SignupPage() {
     setShowConfirmPassword((p) => !p);
 
   /** Default new user data */
-  const getDefaultUserData = (user: any, fullName: string | null = null) => ({
-    uid: user.uid,
-    email: user.email,
-    fullName: fullName || user.displayName || '',
-    plan: 'trial',
-    trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-    milestonesSeeded: false,
-    createdAt: new Date().toISOString(),
+  // const getDefaultUserData = (user: any, fullName: string | null = null) => ({
+  //   uid: user.uid,
+  //   email: user.email,
+  //   fullName: fullName || user.displayName || '',
+  //   plan: 'trial',
+  //   trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+  //   milestonesSeeded: false,
+  //   createdAt: new Date().toISOString(),
 
-    /** --- FIXED --- */
-    companyId,
-    role: companyId ? inviteRole : 'unassigned',
-  });
+  //   /** --- FIXED --- */
+  //   companyId,
+  //   role: companyId ? inviteRole : 'unassigned',
+  // });
+  const getDefaultUserData = (user: any, fullName: string | null = null) => {
+    const baseData = {
+      uid: user.uid,
+      email: user.email,
+      fullName: fullName || user.displayName || '',
+      companyId,
+      role: companyId ? inviteRole : 'unassigned',
+      createdAt: new Date().toISOString(),
+    };
+
+    // Only HR (or company owner) gets trial & billing
+    if (!companyId || inviteRole === 'hr') {
+      return {
+        ...baseData,
+        plan: 'trial',
+        trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      };
+    }
+
+    // Employees do NOT get plan or trial
+    return baseData;
+  };
 
   /** Validate company exists */
   const ensureCompanyExists = async (id: string | null) => {
@@ -144,6 +166,29 @@ export default function SignupPage() {
         });
 
         await cloneOnboardingTemplate(user.uid);
+
+        // Link employee record to auth UID
+        if (companyId && inviteRole === 'employee') {
+          const employeesRef = collection(
+            db,
+            'companies',
+            companyId,
+            'employees',
+          );
+          const snapshot = await getDocs(employeesRef);
+
+          const matching = snapshot.docs.find(
+            (d) => d.data().email?.toLowerCase() === user.email?.toLowerCase(),
+          );
+
+          if (matching) {
+            await setDoc(
+              doc(db, 'companies', companyId, 'employees', matching.id),
+              { uid: user.uid },
+              { merge: true },
+            );
+          }
+        }
       }
 
       router.push('/route-router');
@@ -217,7 +262,7 @@ export default function SignupPage() {
               const userCredential = await createUserWithEmailAndPassword(
                 auth,
                 values.email,
-                values.password
+                values.password,
               );
               const user = userCredential.user;
 
@@ -226,7 +271,7 @@ export default function SignupPage() {
 
               await setDoc(
                 doc(db, 'users', user.uid),
-                getDefaultUserData(user, values.fullName)
+                getDefaultUserData(user, values.fullName),
               );
 
               await setDoc(doc(db, 'customers', user.uid), {

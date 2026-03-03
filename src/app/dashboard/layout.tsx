@@ -1,13 +1,9 @@
 'use client';
 
 import { Sidebar } from '@/components/dashboard/Sidebar';
-import { HRSidebar } from '@/components/dashboard/HRSidebar';
-import { SuperSidebar } from '@/components/dashboard/SuperSidebar';
 import DashboardTopbar from '@/components/dashboard/DashboardTopbar';
-import ProtectedRoute from '@/components/auth/ProtectedRoute';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useUserAccess } from '@/hooks/useUserAccess';
-import { useRouter } from 'next/navigation';
 
 export default function DashboardLayout({
   children,
@@ -15,61 +11,55 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const router = useRouter();
+  const { isTrialExpired, role, loading } = useUserAccess();
 
-  const { role, loading, isSuspended } = useUserAccess();
-
-  // 🔒 BLOCK SUSPENDED USERS (GLOBAL DASHBOARD GUARD)
-  useEffect(() => {
-    if (!loading && isSuspended) {
-      router.replace('/suspended');
-    }
-  }, [loading, isSuspended, router]);
-
-  function getSidebar() {
-    if (role === 'superadmin')
-      return (
-        <SuperSidebar
-          sidebarOpen={sidebarOpen}
-          setSidebarOpen={setSidebarOpen}
-        />
-      );
-
-    if (role === 'hr')
-      return (
-        <HRSidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
-      );
-
+  if (loading) {
     return (
-      <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
+      <div className="min-h-screen flex items-center justify-center">
+        Checking access...
+      </div>
     );
   }
 
-  // ⏳ Prevent rendering while auth is resolving
-  if (loading) {
-    return null; // or a loader if you prefer
+  // HARD BLOCK (Only for HR / owners, NOT employees)
+  if (role !== 'employee' && isTrialExpired && role !== 'superadmin') {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="bg-white shadow rounded-xl p-8 text-center max-w-md">
+          <h2 className="text-xl font-semibold mb-2">Trial Expired</h2>
+          <p className="text-gray-600 mb-4">
+            Your trial has ended. Please upgrade your plan to continue using the
+            platform.
+          </p>
+          <a
+            href="/dashboard/billing"
+            className="inline-block bg-[#00ACC1] text-white px-4 py-2 rounded-lg"
+          >
+            Go to Billing
+          </a>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <ProtectedRoute>
-      <div className="flex min-h-screen">
-        {getSidebar()}
+    <div className="flex min-h-screen">
+      <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
-        <div className="flex-1 flex flex-col md:ml-64 bg-white dark:bg-gray-900 min-h-screen">
-          <div className="md:hidden p-4">
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="bg-[#00ACC1] text-white px-4 py-2 rounded-lg"
-              aria-label="Open menu"
-            >
-              Open Menu
-            </button>
-          </div>
-
-          <DashboardTopbar />
-          <main className="flex-1 p-6">{children}</main>
+      <div className="flex-1 flex flex-col md:ml-64 bg-white dark:bg-gray-900 min-h-screen">
+        <div className="md:hidden p-4">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="bg-[#00ACC1] text-white px-4 py-2 rounded-lg"
+            aria-label="Open menu"
+          >
+            Open Menu
+          </button>
         </div>
+
+        <DashboardTopbar />
+        <main className="flex-1 p-6">{children}</main>
       </div>
-    </ProtectedRoute>
+    </div>
   );
 }

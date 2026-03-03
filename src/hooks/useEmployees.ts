@@ -163,7 +163,10 @@ export function useEmployees(companyId?: string, pageSize = 10) {
         setTotalEmployees(null);
         return;
       }
+      if (!isValidCompany) return;
       const snap = await getCountFromServer(q);
+      // const snap = await getDocs(q);
+      // setTotalEmployees(snap.size);
       setTotalEmployees(snap.data().count ?? null);
     } catch (err) {
       console.error('fetchCount error', err);

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { collection, doc, getDoc, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { useAuth } from '@/hooks/useAuth';
+import { useUserAccess } from '@/hooks/useUserAccess';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -22,7 +22,7 @@ type PayrollItem = {
 };
 
 export default function PayrollApprovePage() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading } = useUserAccess();
   const router = useRouter();
   const params = useParams();
 
@@ -52,7 +52,7 @@ export default function PayrollApprovePage() {
 
       // Load payroll items
       const employeesSnap = await getDocs(
-        collection(db, 'companies', companyId, 'employees')
+        collection(db, 'companies', companyId, 'employees'),
       );
 
       const collected: PayrollItem[] = [];
@@ -65,7 +65,7 @@ export default function PayrollApprovePage() {
           'employees',
           emp.id,
           'payrollItems',
-          runId
+          runId,
         );
         const itemSnap = await getDoc(itemRef);
         if (itemSnap.exists()) {

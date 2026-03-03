@@ -15,7 +15,7 @@ import {
   Download,
   ChevronDown,
 } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
+import { useUserAccess } from '@/hooks/useUserAccess';
 import { useEmployees } from '@/hooks/useEmployees';
 import { Input } from '@/components/ui/input';
 
@@ -38,7 +38,7 @@ const departments = [
 export default function EmployeesPage() {
   const params = useParams();
   const router = useRouter();
-  const { loading: authLoading } = useAuth();
+  const { loading: authLoading } = useUserAccess();
 
   const companyId = Array.isArray(params.companyId)
     ? params.companyId[0]
@@ -187,8 +187,8 @@ export default function EmployeesPage() {
             {typeof totalEmployees === 'number'
               ? `${totalEmployees} employees`
               : employees.length
-              ? `${employees.length} visible`
-              : 'No employees'}
+                ? `${employees.length} visible`
+                : 'No employees'}
           </p>
         </div>
 
@@ -334,8 +334,8 @@ export default function EmployeesPage() {
                           emp.status === 'Active'
                             ? 'bg-green-100 text-green-700'
                             : emp.status === 'On Leave'
-                            ? 'bg-yellow-100 text-yellow-700'
-                            : 'bg-gray-200 text-gray-700'
+                              ? 'bg-yellow-100 text-yellow-700'
+                              : 'bg-gray-200 text-gray-700'
                         }`}
                       >
                         {emp.status}
@@ -347,7 +347,7 @@ export default function EmployeesPage() {
                         className="bg-[#00ACC1] text-white"
                         onClick={() =>
                           router.push(
-                            `/superadmin/company/${companyId}/employees/${emp.id}/edit`
+                            `/superadmin/company/${companyId}/employees/${emp.id}/edit`,
                           )
                         }
                       >
@@ -403,8 +403,8 @@ export default function EmployeesPage() {
                               emp.status === 'Active'
                                 ? 'bg-green-100 text-green-700'
                                 : emp.status === 'On Leave'
-                                ? 'bg-yellow-100 text-yellow-700'
-                                : 'bg-gray-200 text-gray-700'
+                                  ? 'bg-yellow-100 text-yellow-700'
+                                  : 'bg-gray-200 text-gray-700'
                             }`}
                           >
                             {emp.status}
@@ -425,7 +425,7 @@ export default function EmployeesPage() {
                             className="bg-[#00ACC1] text-white hover:bg-[#0094a8]"
                             onClick={() =>
                               router.push(
-                                `/superadmin/company/${companyId}/employees/${emp.id}/edit`
+                                `/superadmin/company/${companyId}/employees/${emp.id}/edit`,
                               )
                             }
                           >

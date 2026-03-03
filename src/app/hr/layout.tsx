@@ -1,51 +1,16 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState } from 'react';
 import { Menu } from 'lucide-react';
 
-import { useUserAccess } from '@/hooks/useUserAccess';
-import { useCurrentCompany } from '@/hooks/useCurrentCompany';
 import { HRSidebar } from '@/components/dashboard/HRSidebar';
 import HRTopbar from '@/components/hr/HRTopbar';
 
 export default function HRLayout({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
-  const { role, loading: accessLoading } = useUserAccess();
-  const { companyId, loading: companyLoading, error } = useCurrentCompany();
-
   const [sidebarOpen, setSidebarOpen] = useState(false);
-
-  useEffect(() => {
-    if (!accessLoading && role && role !== 'hr') {
-      router.replace('/dashboard');
-    }
-  }, [accessLoading, role, router]);
-
-  if (accessLoading || companyLoading) {
-    return <div className="p-6">Loading HR dashboard…</div>;
-  }
-
-  if (role !== 'hr') {
-    return <div className="p-6 text-red-600">Access denied.</div>;
-  }
-
-  if (error) {
-    return <div className="p-6 text-red-600">{error}</div>;
-  }
-
-  if (!companyId) {
-    return (
-      <div className="p-6">
-        <h2 className="text-xl font-semibold mb-2">No company assigned</h2>
-        <p>Please ask the Superadmin to assign your company.</p>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-white">
-      {/* MOBILE OVERLAY */}
       {sidebarOpen && (
         <div
           className="fixed inset-0 bg-black/40 z-40 md:hidden"
@@ -54,7 +19,6 @@ export default function HRLayout({ children }: { children: React.ReactNode }) {
         />
       )}
 
-      {/* SIDEBAR */}
       <aside
         className={`
           fixed inset-y-0 left-0 z-50 w-64
@@ -67,9 +31,7 @@ export default function HRLayout({ children }: { children: React.ReactNode }) {
         <HRSidebar onNavigate={() => setSidebarOpen(false)} />
       </aside>
 
-      {/* MAIN */}
       <div className="flex flex-col min-h-screen md:ml-64">
-        {/* MOBILE TOPBAR */}
         <header className="md:hidden sticky top-0 z-30 flex items-center gap-3 p-4 border-b bg-white">
           <button
             aria-label="Open menu"
@@ -81,7 +43,6 @@ export default function HRLayout({ children }: { children: React.ReactNode }) {
           <span className="font-semibold">HR Dashboard</span>
         </header>
 
-        {/* DESKTOP TOPBAR */}
         <div className="hidden md:block">
           <HRTopbar />
         </div>

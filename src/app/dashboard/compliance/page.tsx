@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { ShieldCheck } from 'lucide-react';
 import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase'; // adjust based on your setup
-import { useAuth } from '@/hooks/useAuth'; // assumes you have an auth hook
+import { useUserAccess } from '@/hooks/useUserAccess'; // assumes you have an auth hook
 
 interface ComplianceModule {
   id: string;
@@ -15,7 +15,7 @@ interface ComplianceModule {
 }
 
 export default function CompliancePage({ params }: { params?: any }) {
-  const { user } = useAuth();
+  const { user } = useUserAccess();
   const [modules, setModules] = useState<ComplianceModule[]>([]);
   const [progress, setProgress] = useState<Record<string, any>>({});
   const orgId = params?.orgId || 'defaultOrg'; // adjust how you resolve orgId
@@ -26,7 +26,7 @@ export default function CompliancePage({ params }: { params?: any }) {
     const fetchData = async () => {
       // Fetch compliance modules
       const snap = await getDocs(
-        collection(db, 'organizations', orgId, 'complianceModules')
+        collection(db, 'organizations', orgId, 'complianceModules'),
       );
       const list = snap.docs.map((doc) => ({
         id: doc.id,
@@ -40,7 +40,7 @@ export default function CompliancePage({ params }: { params?: any }) {
         'organizations',
         orgId,
         'complianceProgress',
-        user.uid
+        user.uid,
       );
       const progSnap = await getDoc(ref);
       if (progSnap.exists()) {
@@ -96,8 +96,8 @@ export default function CompliancePage({ params }: { params?: any }) {
                         status === 'completed'
                           ? 'bg-green-100 text-green-700'
                           : status === 'in_progress'
-                          ? 'bg-yellow-100 text-yellow-700'
-                          : 'bg-gray-100 text-gray-600'
+                            ? 'bg-yellow-100 text-yellow-700'
+                            : 'bg-gray-100 text-gray-600'
                       }`}
                     >
                       {status.replace('_', ' ')}

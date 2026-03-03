@@ -2,19 +2,16 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { db } from '@/lib/firebase';
-import {
-  doc,
-  getDoc,
-  DocumentData,
-  updateDoc,
-  serverTimestamp,
-} from 'firebase/firestore';
+import { doc, getDoc, DocumentData } from 'firebase/firestore';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { Briefcase, ChevronLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useCurrentCompany } from '@/hooks/useCurrentCompany';
+
+import { assignOnboardingFlowToEmployee } from '@/lib/onboarding/assignFlowToEmployee';
+import { useHRSession } from '@/hooks/useHRSession';
 import { useOffboarding } from '@/hooks/useOffboarding';
+import { useHROnboardingFlows } from '@/hooks/useHROnboardingFlows';
 
 type Employee = {
   id: string;
@@ -38,27 +35,26 @@ export default function EmployeeDetailClient({
   employeeId: string;
 }) {
   const router = useRouter();
-  const { companyId, loading: loadingCompany } = useCurrentCompany();
+  const { companyId, loading: loadingCompany } = useHRSession();
   const { startOffboarding, offboarding } = useOffboarding(employeeId);
+
+  const { flows, loading: flowsLoading } = useHROnboardingFlows();
 
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedFlowId, setSelectedFlowId] = useState('');
 
   // Fetch employee
   useEffect(() => {
     let mounted = true;
 
     async function fetchEmployee() {
+      if (!companyId) return;
+
       setLoading(true);
       setError(null);
-
-      if (!companyId) {
-        setError('No company assigned.');
-        setLoading(false);
-        return;
-      }
 
       try {
         const ref = doc(db, 'companies', companyId, 'employees', employeeId);
@@ -84,12 +80,13 @@ export default function EmployeeDetailClient({
     }
 
     if (!loadingCompany) fetchEmployee();
+
     return () => {
       mounted = false;
     };
   }, [companyId, employeeId, loadingCompany]);
 
-  // START OFFBOARDING (LOCKED SAFELY)
+  // Start Offboarding
   const onStartOffboarding = async () => {
     if (!companyId || !employee) return;
 
@@ -117,11 +114,30 @@ export default function EmployeeDetailClient({
     }
   };
 
+  // Assign Onboarding Flow
+  const onAssignOnboarding = async () => {
+    if (!companyId || !employee || !selectedFlowId) return;
+
+    try {
+      await assignOnboardingFlowToEmployee(
+        companyId,
+        employee.id,
+        selectedFlowId,
+      );
+
+      alert('Onboarding flow assigned successfully');
+      setSelectedFlowId('');
+    } catch (err) {
+      console.error(err);
+      alert('Failed to assign onboarding flow');
+    }
+  };
+
   const back = () => router.push('/hr/employees');
 
   const avatarSrc = useMemo(
     () => employee?.avatarUrl ?? '/placeholder-employee.png',
-    [employee]
+    [employee],
   );
 
   if (loading) {
@@ -210,6 +226,35 @@ export default function EmployeeDetailClient({
                     ? 'View Offboarding'
                     : 'Start Offboarding'}
                 </button>
+              )}
+
+              {/* Assign Onboarding */}
+              {employee.status === 'Active' && (
+                <>
+                  <select
+                    value={selectedFlowId}
+                    onChange={(e) => setSelectedFlowId(e.target.value)}
+                    className="border rounded px-2 py-2 text-sm"
+                    disabled={flowsLoading}
+                  >
+                    <option value="">Select onboarding flow…</option>
+                    {flows
+                      .filter((f) => f.isActive)
+                      .map((flow) => (
+                        <option key={flow.id} value={flow.id}>
+                          {flow.name}
+                        </option>
+                      ))}
+                  </select>
+
+                  <button
+                    onClick={onAssignOnboarding}
+                    disabled={!selectedFlowId}
+                    className="px-3 py-2 rounded bg-[#00ACC1] text-white disabled:opacity-50"
+                  >
+                    Assign Onboarding
+                  </button>
+                </>
               )}
             </div>
           </div>

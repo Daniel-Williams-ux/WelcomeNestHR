@@ -3,13 +3,22 @@
 
 import React, { useMemo, useState } from 'react';
 import { Plus, Download, ChevronLeft, ChevronRight } from 'lucide-react';
-import { useCurrentCompany } from '@/hooks/useCurrentCompany';
+import { useHRSession } from '@/hooks/useHRSession';
 import { useEmployees } from '@/hooks/useEmployees';
+import { useAuthContext } from '@/components/AuthProvider';
 import { useRouter } from 'next/navigation';
 
 export default function HREmployeesPage() {
-  const { companyId, loading: loadingCompany } = useCurrentCompany();
+  console.log('HREmployeesPage rendered');
+  const { companyId, loading: loadingCompany } = useHRSession();
   const router = useRouter();
+  console.log('HR DEBUG:', {
+    companyId,
+    loadingCompany,
+  });
+
+  const auth = useAuthContext();
+  console.log('AUTH STATE:', auth);
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
@@ -17,6 +26,7 @@ export default function HREmployeesPage() {
   const [sortField, setSortField] = useState<'createdAt' | 'name'>('createdAt');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [showAdd, setShowAdd] = useState(false);
+
 
   const {
     employees,
@@ -38,7 +48,7 @@ export default function HREmployeesPage() {
     exportFilteredEmployees,
     exportAllEmployees,
     reload,
-  } = useEmployees(companyId ?? undefined, 10);
+  } = useEmployees(companyId || '', 10);
 
   React.useEffect(() => setSearchName(search), [search]);
   React.useEffect(() => setStatus(statusFilter), [statusFilter]);
@@ -234,6 +244,76 @@ export default function HREmployeesPage() {
           </button>
         </div>
       </div>
+
+      {/* ADD EMPLOYEE MODAL (Restored) */}
+      {showAdd && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md space-y-4">
+            <h2 className="text-lg font-semibold">Add Employee</h2>
+
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                const form = e.currentTarget as HTMLFormElement;
+                const formData = new FormData(form);
+
+                await addEmployee({
+                  name: formData.get('name') as string,
+                  title: formData.get('title') as string,
+                  department: formData.get('department') as string,
+                  email: formData.get('email') as string,
+                  status: 'Active',
+                });
+
+                setShowAdd(false);
+              }}
+              className="space-y-3"
+            >
+              <input
+                name="name"
+                placeholder="Name"
+                required
+                className="w-full border px-3 py-2 rounded"
+              />
+
+              <input
+                name="title"
+                placeholder="Role / Title"
+                className="w-full border px-3 py-2 rounded"
+              />
+
+              <input
+                name="department"
+                placeholder="Department"
+                className="w-full border px-3 py-2 rounded"
+              />
+
+              <input
+                name="email"
+                placeholder="Email"
+                className="w-full border px-3 py-2 rounded"
+              />
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAdd(false)}
+                  className="px-4 py-2 border rounded"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-[#00ACC1] text-white rounded"
+                >
+                  Create
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

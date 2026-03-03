@@ -1,36 +1,30 @@
 'use client';
 
-import { useEffect } from 'react';
-import { redirect, useRouter } from 'next/navigation';
+import { redirect } from 'next/navigation';
 import { useUserAccess } from '@/hooks/useUserAccess';
 
 export default function DashboardHome() {
-  const { user, loading, role, canAccessPremium, plan, isTrialExpired } =
-    useUserAccess();
-  const router = useRouter();
+  const { loading, role, plan } = useUserAccess();
 
   if (loading) return <p className="p-6">Loading...</p>;
-  if (!user)
+  if (!role)
     return <p className="p-6 text-red-600">Please sign in to continue.</p>;
 
-  // 🔥 ROLE-BASED REDIRECTION (This is the missing piece)
+  // ROLE-BASED REDIRECTION
   if (role === 'superadmin') redirect('/superadmin');
   if (role === 'hr') redirect('/hr');
 
-  // Employee access control
-  if (!canAccessPremium) redirect('/upgrade');
+ return (
+   <div className="p-6">
+     <h1 className="text-2xl font-semibold text-[#004d59] dark:text-white">
+       Welcome to your dashboard!
+     </h1>
 
-  return (
-    <div className="p-6">
-      <h1 className="text-2xl font-semibold text-[#004d59] dark:text-white">
-        Welcome to your dashboard!
-      </h1>
-      <p className="mt-2 text-gray-600 dark:text-gray-400">
-        Your plan: <strong>{plan}</strong>
-      </p>
-      {isTrialExpired && plan === 'trial' && (
-        <p className="mt-2 text-red-500">⚠️ Your 30-day trial has ended.</p>
-      )}
-    </div>
-  );
+     {role !== 'employee' && (
+       <p className="mt-2 text-gray-600 dark:text-gray-400">
+         Your plan: <strong>{plan}</strong>
+       </p>
+     )}
+   </div>
+ );
 }

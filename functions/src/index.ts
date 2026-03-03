@@ -143,6 +143,55 @@ export const cloneOrgTasksToUser = onDocumentCreated(
 );
 
 /* ----------------------------------------
+   LINK EMPLOYEE RECORD TO AUTH UID
+----------------------------------------- */
+
+export const linkEmployeeToCompanyRecord = onDocumentCreated(
+  'users/{userId}',
+  async (event) => {
+    const userId = event.params.userId;
+    const userData = event.data?.data();
+
+    if (!userData) return;
+
+    const { role, companyId, email } = userData;
+
+    if (role !== 'employee' || !companyId || !email) {
+      return;
+    }
+
+    try {
+      const employeesSnap = await db
+        .collection('companies')
+        .doc(companyId)
+        .collection('employees')
+        .where('email', '==', email.toLowerCase())
+        .get();
+
+      if (employeesSnap.empty) {
+        logger.warn(
+          `No matching employee found for ${email} in company ${companyId}`
+        );
+        return;
+      }
+
+      const employeeDoc = employeesSnap.docs[0];
+
+      await employeeDoc.ref.update({
+        uid: userId,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      logger.info(
+        `Linked employee ${employeeDoc.id} to auth user ${userId}`
+      );
+    } catch (error) {
+      logger.error('Error linking employee to company record', error);
+    }
+  }
+);
+
+/* ----------------------------------------
    STRIPE WEBHOOK (GEN-2)
 ----------------------------------------- */
 

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { collection, doc, getDoc, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { useAuth } from '@/hooks/useAuth';
+import { useUserAccess } from '@/hooks/useUserAccess';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -13,7 +13,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { PayrollRun, EmployeePayrollItem } from '@/types/payroll';
 
 export default function HRPayrollRunPage() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading } = useUserAccess();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -47,7 +47,7 @@ export default function HRPayrollRunPage() {
         companyId,
         'payrollRuns',
         runId,
-        'items'
+        'items',
       );
       const itemsSnap = await getDocs(itemsRef);
 

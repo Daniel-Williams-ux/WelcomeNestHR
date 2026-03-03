@@ -3,10 +3,10 @@
 import { useEffect, useState } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { useAuth } from '@/hooks/useAuth';
+import { useUserAccess } from '@/hooks/useUserAccess';
 
 export default function PayslipYearSummary() {
-  const { user } = useAuth();
+  const { user } = useUserAccess();
   const currentYear = new Date().getFullYear();
 
   const [year, setYear] = useState(currentYear);

@@ -10,7 +10,7 @@ import {
   DocumentData,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { useAuth } from '@/hooks/useAuth';
+import { useUserAccess } from '@/hooks/useUserAccess';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import PaginationControls from '@/components/common/PaginationControls';
@@ -29,7 +29,7 @@ type UserPayslip = {
 const PAGE_SIZE = 20;
 
 export default function PayslipsPage() {
-  const { user } = useAuth();
+  const { user } = useUserAccess();
 
   const [payslips, setPayslips] = useState<UserPayslip[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,7 +48,7 @@ export default function PayslipsPage() {
     let q = query(
       collection(db, 'users', user.uid, 'payslips'),
       orderBy('issuedAt', 'desc'),
-      limit(PAGE_SIZE)
+      limit(PAGE_SIZE),
     );
 
     if (cursor && direction === 'next') {

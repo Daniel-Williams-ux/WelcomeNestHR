@@ -12,10 +12,10 @@ import {
   doc,
   onSnapshot,
 } from 'firebase/firestore';
-import { useAuth } from '@/hooks/useAuth'; // assuming you already have this
+import { useUserAccess } from '@/hooks/useUserAccess'; // assuming you already have this
 
 export default function PrimerPage() {
-  const { user } = useAuth();
+  const { user } = useUserAccess();
   const [plans, setPlans] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 

@@ -1,101 +1,90 @@
-import { useEffect, useState } from "react";
-import { db } from "@/lib/firebase";
-import {
-  collection,
-  doc,
-  getDocs,
-  onSnapshot,
-  setDoc,
-  updateDoc,
-} from "firebase/firestore";
-import { useUserAccess } from "./useUserAccess";
+'use client';
 
-export interface OnboardingStep {
+import { useEffect, useState } from 'react';
+import { collection, getDocs, orderBy, query } from 'firebase/firestore';
+
+import { db } from '@/lib/firebase';
+import { createChecklistItem } from '@/lib/onboarding/createChecklistItem';
+import { useUserAccess } from '@/hooks/useUserAccess';
+import { useCurrentCompany } from '@/hooks/useCurrentCompany';
+
+export type ChecklistItem = {
   id: string;
   title: string;
-  description: string;
-  completed: boolean;
-}
+  description?: string;
+  order: number;
+};
 
-// ✅ Default onboarding steps
-const DEFAULT_TASKS: Omit<OnboardingStep, "id">[] = [
-  {
-    title: "Complete your profile",
-    description: "Add your name, role, and profile picture",
-    completed: false,
-  },
-  {
-    title: "Meet your onboarding buddy",
-    description: "Schedule a meeting with your assigned buddy",
-    completed: false,
-  },
-  {
-    title: "Read the company handbook",
-    description: "Review policies and guidelines",
-    completed: false,
-  },
-  {
-    title: "Set up work tools",
-    description: "Install and configure Slack, Jira, and email",
-    completed: false,
-  },
-  {
-    title: "Schedule your 30-day check-in",
-    description: "Meet with your manager to discuss progress",
-    completed: false,
-  },
-];
+export function useOnboardingChecklist(flowId: string) {
+  const { user, loading: userLoading } = useUserAccess();
+  const { companyId, loading: companyLoading } = useCurrentCompany(user);
 
-export function useOnboardingChecklist() {
-  const { user } = useUserAccess();
-  const [steps, setSteps] = useState<OnboardingStep[]>([]);
+  const [items, setItems] = useState<ChecklistItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user) return;
-
-    const onboardingRef = collection(db, "users", user.uid, "onboarding");
-
-    // Seed defaults once if empty
-    (async () => {
-      const snapshot = await getDocs(onboardingRef);
-      if (snapshot.empty) {
-        for (const task of DEFAULT_TASKS) {
-          const taskRef = doc(onboardingRef);
-          await setDoc(taskRef, task);
-        }
-      }
-    })();
-
-    // Live updates
-    const unsubscribe = onSnapshot(onboardingRef, (snapshot) => {
-      const list: OnboardingStep[] = snapshot.docs.map((docSnap) => {
-        const data = docSnap.data() as Omit<OnboardingStep, "id">;
-        return { id: docSnap.id, ...data };
-      });
-      setSteps(list);
+    if (userLoading || companyLoading || !companyId || !flowId) {
       setLoading(false);
+      return;
+    }
+
+    async function load() {
+      setLoading(true);
+
+      const q = query(
+        collection(
+          db,
+          'companies',
+          companyId,
+          'onboardingFlows',
+          flowId,
+          'checklistItems',
+        ),
+        orderBy('order', 'asc'),
+      );
+
+      const snap = await getDocs(q);
+
+      const data: ChecklistItem[] = snap.docs.map((doc) => ({
+        id: doc.id,
+        ...(doc.data() as Omit<ChecklistItem, 'id'>),
+      }));
+
+      setItems(data);
+      setLoading(false);
+    }
+
+    load();
+  }, [companyId, flowId, userLoading, companyLoading]);
+
+  async function createItem(title: string, description?: string) {
+    if (!companyId || !flowId || !title.trim()) return;
+
+    const nextOrder =
+      items.length === 0 ? 0 : Math.max(...items.map((i) => i.order)) + 1;
+
+    const ref = await createChecklistItem({
+      companyId,
+      flowId,
+      title: title.trim(),
+      description: description?.trim() || null,
+      order: nextOrder,
     });
 
-    return () => unsubscribe();
-  }, [user]);
-
-  // ✅ Option B: derive current state from local `steps`
-  async function toggleStepComplete(stepId: string) {
-    if (!user) return;
-    const current = steps.find((s) => s.id === stepId);
-    if (!current) return;
-
-    // Optional optimistic UI
-    setSteps((prev) =>
-      prev.map((s) =>
-        s.id === stepId ? { ...s, completed: !s.completed } : s
-      )
-    );
-
-    const ref = doc(db, "users", user.uid, "onboarding", stepId);
-    await updateDoc(ref, { completed: !current.completed });
+    setItems((prev) => [
+      ...prev,
+      {
+        id: ref.id,
+        title: title.trim(),
+        description: description?.trim() || undefined,
+        order: nextOrder,
+      },
+    ]);
   }
 
-  return { steps, loading, toggleStepComplete };
+  return {
+    items,
+    loading,
+    createItem,
+  };
 }
