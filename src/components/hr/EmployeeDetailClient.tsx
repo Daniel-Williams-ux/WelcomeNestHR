@@ -8,7 +8,7 @@ import { motion } from 'framer-motion';
 import { Briefcase, ChevronLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
-import { assignOnboardingFlowToEmployee } from '@/lib/onboarding/assignFlowToEmployee';
+import { assignOnboardingFlowToEmployee } from '@/lib/onboarding/assignOnboardingFlow';
 import { useHRSession } from '@/hooks/useHRSession';
 import { useOffboarding } from '@/hooks/useOffboarding';
 import { useHROnboardingFlows } from '@/hooks/useHROnboardingFlows';

@@ -12,13 +12,8 @@ export default function HREmployeesPage() {
   console.log('HREmployeesPage rendered');
   const { companyId, loading: loadingCompany } = useHRSession();
   const router = useRouter();
-  console.log('HR DEBUG:', {
-    companyId,
-    loadingCompany,
-  });
 
   const auth = useAuthContext();
-  console.log('AUTH STATE:', auth);
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string | null>(null);

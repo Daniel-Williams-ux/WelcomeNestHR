@@ -81,7 +81,7 @@ export default function BillingPage() {
                 Current Plan
               </h2>
               <p className="mt-1 text-gray-600 dark:text-gray-300">
-                {plan === "platinum" ? (
+                {plan === "Platinum" ? (
                   <span className="font-medium text-[#00ACC1]">Platinum</span>
                 ) : (
                   <span className="font-medium text-orange-500">
@@ -90,7 +90,7 @@ export default function BillingPage() {
                 )}
               </p>
 
-              {plan === "trial" && trialEndsAt && (
+              {plan === "Trial" && trialEndsAt && (
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                   Trial ends on{" "}
                   <strong>{formatDate(trialEndsAt.getTime())}</strong>
@@ -101,12 +101,12 @@ export default function BillingPage() {
             <div>
               <span
                 className={`inline-block px-3 py-1 text-sm font-medium rounded-full ${
-                  plan === "platinum"
+                  plan === "Platinum"
                     ? "bg-[#00ACC1]/10 text-[#00ACC1]"
                     : "bg-orange-100 text-orange-600"
                 }`}
               >
-                {plan === "platinum" ? "Active" : "Trial"}
+                {plan === "Platinum" ? "Active" : "Trial"}
               </span>
             </div>
           </div>

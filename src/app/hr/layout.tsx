@@ -1,13 +1,37 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Menu } from 'lucide-react';
 
 import { HRSidebar } from '@/components/dashboard/HRSidebar';
 import HRTopbar from '@/components/hr/HRTopbar';
+import { useAuthContext } from '@/components/AuthProvider';
+import { useRouter } from 'next/navigation';
 
 export default function HRLayout({ children }: { children: React.ReactNode }) {
+
+  const { role, plan, trialEndsAt, trialDaysLeft, loading } = useAuthContext();
+  const router = useRouter();
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    if (loading) return;
+
+    if (role !== 'hr') {
+      router.replace('/dashboard');
+    }
+  }, [role, loading, router]);
+
+  useEffect(() => {
+    if (loading) return;
+
+    const trialExpired = plan === 'Trial' && trialDaysLeft === 0;
+
+    if (trialExpired) {
+      router.replace('/upgrade');
+    }
+  }, [plan, trialDaysLeft, loading, router]);
 
   return (
     <div className="min-h-screen bg-white">

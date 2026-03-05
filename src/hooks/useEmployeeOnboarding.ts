@@ -24,13 +24,13 @@ export type EmployeeOnboardingStep = {
 
 export function useEmployeeOnboarding(flowId: string) {
   const { user } = useUserAccess();
-  const companyId = user?.companyId; // ✅ FIX: employee source of truth
+  const companyId = user?.companyId; //  FIX: employee source of truth
 
   const [steps, setSteps] = useState<EmployeeOnboardingStep[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user?.uid || !companyId || !flowId) {
+    if (!user?.employeeId || !companyId || !flowId) {
       setLoading(false);
       return;
     }
@@ -39,29 +39,27 @@ export function useEmployeeOnboarding(flowId: string) {
       setLoading(true);
 
       // Load HR checklist
-      const checklistQuery = query(
-        collection(
-          db,
-          'companies',
-          companyId,
-          'onboardingFlows',
-          flowId,
-          'checklistItems',
-        ),
-        orderBy('order', 'asc'),
+      const checklistQuery = collection(
+        db,
+        'companies',
+        companyId,
+        'onboardingFlows',
+        flowId,
+        'checklistItems',
       );
-
       const checklistSnap = await getDocs(checklistQuery);
 
       // Load employee progress
       const progressSnap = await getDocs(
         collection(
           db,
-          'users',
-          user.uid,
-          'onboardingProgress',
+          'companies',
+          companyId,
+          'employees',
+          user.employeeId,
+          'onboardingFlows',
           flowId,
-          'items',
+          'progress',
         ),
       );
 
@@ -86,20 +84,22 @@ export function useEmployeeOnboarding(flowId: string) {
     }
 
     load();
-  }, [user?.uid, companyId, flowId]);
+  }, [user?.employeeId, companyId, flowId]);
 
   const toggleStepComplete = useCallback(
     async (stepId: string, completed: boolean) => {
-      if (!user?.uid || !flowId) return;
+      if (!user?.employeeId || !flowId) return;
 
       await setDoc(
         doc(
           db,
-          'users',
-          user.uid,
-          'onboardingProgress',
+          'companies',
+          companyId,
+          'employees',
+          user.employeeId,
+          'onboardingFlows',
           flowId,
-          'items',
+          'progress',
           stepId,
         ),
         {
@@ -115,7 +115,7 @@ export function useEmployeeOnboarding(flowId: string) {
         ),
       );
     },
-    [user?.uid, flowId],
+    [user?.employeeId, companyId, flowId],
   );
 
   return {

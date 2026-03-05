@@ -11,7 +11,7 @@ export function useMilestones(employeeId?: string) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user || !employeeId) {
+    if (!user?.companyId || !employeeId) {
       setMilestones([]);
       setLoading(false);
       return;
@@ -19,7 +19,10 @@ export function useMilestones(employeeId?: string) {
 
     async function load() {
       try {
-        const flows = await getEmployeeOnboardingFlows(employeeId);
+        const flows = await getEmployeeOnboardingFlows(
+          user.companyId,
+          employeeId,
+        );
 
         const merged = flows
           .flatMap((f) => f.milestones)
@@ -35,7 +38,7 @@ export function useMilestones(employeeId?: string) {
     }
 
     load();
-  }, [user, employeeId]);
+  }, [user?.companyId, employeeId]);
 
   return { milestones, loading };
 }

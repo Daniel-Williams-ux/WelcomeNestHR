@@ -25,8 +25,18 @@ export interface EmployeeOnboardingFlow {
   milestones: EmployeeMilestone[];
 }
 
-export async function getEmployeeOnboardingFlows(employeeId: string) {
-  const flowsRef = collection(db, 'employees', employeeId, 'onboardingFlows');
+export async function getEmployeeOnboardingFlows(
+  companyId: string,
+  employeeId: string
+) {
+  const flowsRef = collection(
+    db,
+    'companies',
+    companyId,
+    'employees',
+    employeeId,
+    'onboardingFlows'
+  );
 
   const snapshot = await getDocs(flowsRef);
 

@@ -81,22 +81,9 @@ export default function SignupPage() {
   const toggleConfirmPasswordVisibility = () =>
     setShowConfirmPassword((p) => !p);
 
-  /** Default new user data */
-  // const getDefaultUserData = (user: any, fullName: string | null = null) => ({
-  //   uid: user.uid,
-  //   email: user.email,
-  //   fullName: fullName || user.displayName || '',
-  //   plan: 'trial',
-  //   trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-  //   milestonesSeeded: false,
-  //   createdAt: new Date().toISOString(),
-
-  //   /** --- FIXED --- */
-  //   companyId,
-  //   role: companyId ? inviteRole : 'unassigned',
-  // });
+  
   const getDefaultUserData = (user: any, fullName: string | null = null) => {
-    const baseData = {
+    return {
       uid: user.uid,
       email: user.email,
       fullName: fullName || user.displayName || '',
@@ -104,18 +91,6 @@ export default function SignupPage() {
       role: companyId ? inviteRole : 'unassigned',
       createdAt: new Date().toISOString(),
     };
-
-    // Only HR (or company owner) gets trial & billing
-    if (!companyId || inviteRole === 'hr') {
-      return {
-        ...baseData,
-        plan: 'trial',
-        trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-      };
-    }
-
-    // Employees do NOT get plan or trial
-    return baseData;
   };
 
   /** Validate company exists */

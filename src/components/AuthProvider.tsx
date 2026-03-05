@@ -8,7 +8,13 @@ import {
   ReactNode,
 } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc, Timestamp } from 'firebase/firestore';
+import {
+  doc,
+  getDoc,
+  getDocs,
+  collection,
+  Timestamp,
+} from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 
 type Role = 'superadmin' | 'hr' | 'employee';
@@ -86,8 +92,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const userData = snap.data();
+
       const role = userData.role ?? 'employee';
       const companyId = userData.companyId ?? null;
+
+      let employeeId: string | null = null;
+
+      if (companyId && role === 'employee') {
+        const employeesSnap = await getDocs(
+          collection(db, 'companies', companyId, 'employees'),
+        );
+
+        employeesSnap.forEach((docSnap) => {
+          if (docSnap.data().uid === firebaseUser.uid) {
+            employeeId = docSnap.id;
+          }
+        });
+      }
 
       let plan: Plan | null = null;
       let trialEndsAt: Date | null = null;
@@ -134,6 +155,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user: {
           uid: firebaseUser.uid,
           email: firebaseUser.email,
+          employeeId,
           ...userData,
         },
         role,
@@ -142,7 +164,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         trialDaysLeft,
         loading: false,
       });
-    }); // 👈 CLOSE onAuthStateChanged
+    }); //  CLOSE onAuthStateChanged
 
     return () => unsub();
   }, []);

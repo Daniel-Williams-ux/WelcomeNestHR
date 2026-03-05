@@ -18,16 +18,19 @@ export default function AssignOnboardingFlowPage() {
     if (!companyId) return;
 
     async function load() {
-      const empSnap = await getDocs(collection(db, 'employees'));
+      const empSnap = await getDocs(
+        collection(db, 'companies', companyId, 'employees'),
+      );
 
       const flowSnap = await getDocs(
         collection(db, 'companies', companyId, 'onboardingFlows'),
       );
 
       setEmployees(
-        empSnap.docs
-          .map((d) => ({ id: d.id, ...d.data() }))
-          .filter((e) => e.companyId === companyId),
+        empSnap.docs.map((d) => ({
+          id: d.id,
+          ...d.data(),
+        })),
       );
 
       setFlows(

@@ -26,13 +26,21 @@ export async function assignOnboardingFlowToEmployee(
 
   const employeeFlowRef = doc(
     db,
+    'companies',
+    companyId,
     'employees',
     employeeId,
     'onboardingFlows',
     flowId,
   );
 
-  const employeeRootRef = doc(db, 'employees', employeeId);
+  const employeeRootRef = doc(
+    db,
+    'companies',
+    companyId,
+    'employees',
+    employeeId,
+  );
 
   const flowSnap = await getDoc(flowRef);
   if (!flowSnap.exists()) {
@@ -41,7 +49,7 @@ export async function assignOnboardingFlowToEmployee(
 
   const flowData = flowSnap.data();
 
-  // 🔥 Read checklist items
+  //  Read checklist items
   const checklistSnap = await getDocs(checklistRef);
 
   const milestones = checklistSnap.docs

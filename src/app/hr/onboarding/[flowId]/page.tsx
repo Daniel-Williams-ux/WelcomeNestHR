@@ -39,40 +39,39 @@ export default function OnboardingFlowDetailPage() {
     setSubmitting(false);
   }
 
- async function handleAssign() {
-   if (!selectedEmployeeId) return;
+async function handleAssign() {
+  if (!selectedEmployeeId || !companyId) return;
 
-   const employee = employees.find((e) => e.id === selectedEmployeeId);
+  try {
+    setAssigning(true);
 
-   console.log('Selected employee ID:', selectedEmployeeId);
-   console.log('Employee object:', employee);
+    await setDoc(
+      doc(
+        db,
+        'companies',
+        companyId,
+        'employees',
+        selectedEmployeeId,
+        'onboardingFlows',
+        flowId,
+      ),
+      {
+        flowId,
+        assignedAt: serverTimestamp(),
+        status: 'active',
+      },
+    );
 
-   if (!employee || !employee.uid) {
-     console.log('UID missing. Aborting.');
-     return;
-   }
+    console.log('Assignment successful.');
 
-   try {
-     setAssigning(true);
-
-     await setDoc(doc(db, 'users', employee.uid, 'onboardingFlows', flowId), {
-       flowId,
-       assignedAt: serverTimestamp(),
-       status: 'active',
-     });
-
-     console.log('Assignment successful.');
-
-     setSelectedEmployeeId('');
-   } catch (err) {
-     console.error('Assignment failed:', err);
-   } finally {
-     setAssigning(false);
-   }
- }
-
-
-
+    setSelectedEmployeeId('');
+  } catch (err) {
+    console.error('Assignment failed:', err);
+  } finally {
+    setAssigning(false);
+  }
+}
+  
   if (loading) {
     return <div className="p-6 text-sm text-gray-500">Loading flow…</div>;
   }
