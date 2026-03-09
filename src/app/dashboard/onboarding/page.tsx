@@ -13,18 +13,30 @@ export default function SmartOnboardingPage() {
 
   const { flowId, loading: flowLoading } = useEmployeeActiveFlow();
 
- const {
-   steps,
-   loading: checklistLoading,
-   toggleStepComplete,
- } = useEmployeeOnboarding(flowId ?? '');
+  const {
+    steps,
+    loading: checklistLoading,
+    toggleStepComplete,
+  } = useEmployeeOnboarding(flowId ?? '');
 
-  const { milestones, loading: milestonesLoading } = useMilestones(user?.uid);
+  // safe calculation (works even while loading)
+  const total = steps?.length ?? 0;
+  const completed = steps?.filter((s) => s.completed).length ?? 0;
 
- if (flowLoading || checklistLoading || milestonesLoading) {
-   return <div className="p-6">Loading…</div>;
+  const completionPercent =
+    total > 0 ? Math.round((completed / total) * 100) : 0;
+
+  const { milestones } = useMilestones(completionPercent);
+
+  const currentPhaseIndex = Math.min(
+    Math.floor((completionPercent / 100) * 5),
+    4,
+  );
+
+  if (flowLoading || checklistLoading) {
+    return <div className="p-6">Loading…</div>;
   }
-  
+
   if (!flowId) {
     return (
       <div className="p-6 text-gray-500">
@@ -32,17 +44,6 @@ export default function SmartOnboardingPage() {
       </div>
     );
   }
-
-  const total = steps.length;
-  const completed = steps.filter((s) => s.completed).length;
-
-  const completionPercent =
-    total > 0 ? Math.round((completed / total) * 100) : 0;
-
-  const currentPhaseIndex = Math.min(
-    Math.floor((completionPercent / 100) * 5),
-    4,
-  );
 
   return (
     <div className="space-y-10 p-6">

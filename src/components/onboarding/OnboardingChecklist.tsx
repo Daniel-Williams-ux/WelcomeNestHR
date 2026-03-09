@@ -29,6 +29,7 @@ export default function OnboardingChecklist() {
   }, [user, accessLoading]);
 
   const toggleStep = async (id: string, checked: boolean) => {
+    console.log('CHECKBOX CLICKED:', id, checked);
     if (!user?.uid) return;
 
     const updated = checked

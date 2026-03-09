@@ -3,60 +3,36 @@
 import { useEffect, useState } from 'react';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
 import { useUserAccess } from '@/hooks/useUserAccess';
 
 export function useEmployeeActiveFlow() {
   const { user } = useUserAccess();
-  const companyId = user?.companyId;
-  const employeeId = user?.employeeId;
 
   const [flowId, setFlowId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user?.uid || !companyId || !employeeId) {
-      setLoading(false);
-      return;
-    }
+    if (!user?.uid) return;
 
     async function load() {
-  console.log('ACTIVE FLOW DEBUG', {
-    companyId,
-    employeeId: user?.employeeId,
-    uid: user?.uid,
-  });
-  const employeeRef = doc(db, 'companies', companyId, 'employees', employeeId);
+      const flowSnap = await getDocs(
+        collection(db, 'users', user.uid, 'onboardingFlows'),
+      );
 
-  const employeeSnap = await getDoc(employeeRef);
+      console.log('FLOW SNAP SIZE:', flowSnap.size);
 
-  if (!employeeSnap.exists()) {
-    setFlowId(null);
-    setLoading(false);
-    return;
-  }
+      if (!flowSnap.empty) {
+        const data = flowSnap.docs[0].data();
+        setFlowId(data.flowId);
+      } else {
+        setFlowId(null);
+      }
 
-  const flowSnap = await getDocs(
-    collection(
-      db,
-      'companies',
-      companyId,
-      'employees',
-      user.employeeId,
-      'onboardingFlows',
-    ),
-  );
+      setLoading(false);
+    }
 
-  if (!flowSnap.empty) {
-    setFlowId(flowSnap.docs[0].id);
-  } else {
-    setFlowId(null);
-  }
-
-  setLoading(false);
-}
     load();
-  }, [user?.uid, companyId]);
+  }, [user?.uid]);
 
   return { flowId, loading };
 }

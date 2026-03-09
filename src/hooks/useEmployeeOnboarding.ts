@@ -13,6 +13,7 @@ import {
 
 import { db } from '@/lib/firebase';
 import { useUserAccess } from '@/hooks/useUserAccess';
+import { calcProgress } from '@/lib/onboarding/calcProgress';
 
 export type EmployeeOnboardingStep = {
   id: string;
@@ -88,8 +89,11 @@ export function useEmployeeOnboarding(flowId: string) {
 
   const toggleStepComplete = useCallback(
     async (stepId: string, completed: boolean) => {
-      if (!user?.employeeId || !flowId) return;
+      if (!user?.employeeId || !companyId || !flowId) return;
 
+      const newCompleted = !completed;
+
+      // 1 Update Firestore task progress
       await setDoc(
         doc(
           db,
@@ -103,19 +107,45 @@ export function useEmployeeOnboarding(flowId: string) {
           stepId,
         ),
         {
-          completed: !completed,
+          completed: newCompleted,
           updatedAt: serverTimestamp(),
         },
         { merge: true },
       );
 
-      setSteps((prev) =>
-        prev.map((s) =>
-          s.id === stepId ? { ...s, completed: !completed } : s,
+      // 2 Build updated steps locally
+      const updatedSteps = steps.map((s) =>
+        s.id === stepId ? { ...s, completed: newCompleted } : s,
+      );
+
+      // 3 Update UI
+      setSteps(updatedSteps);
+
+      // 4 Calculate progress summary
+      const progress = calcProgress(updatedSteps);
+
+      // 5 Persist progress summary
+      await setDoc(
+        doc(
+          db,
+          'companies',
+          companyId,
+          'employees',
+          user.employeeId,
+          'onboardingFlows',
+          flowId,
         ),
+        {
+          progressPercent: progress.percent,
+          tasksCompleted: progress.completed,
+          tasksTotal: progress.total,
+          currentMilestone: progress.milestone,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true },
       );
     },
-    [user?.employeeId, companyId, flowId],
+    [steps, user?.employeeId, companyId, flowId],
   );
 
   return {

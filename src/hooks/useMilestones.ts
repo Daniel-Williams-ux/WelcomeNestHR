@@ -1,44 +1,66 @@
-import { useEffect, useState } from 'react';
-import { useUserAccess } from './useUserAccess';
-import {
-  getEmployeeOnboardingFlows,
-  EmployeeMilestone,
-} from '@/lib/onboarding/getEmployeeOnboarding';
+import { useMemo } from 'react';
 
-export function useMilestones(employeeId?: string) {
-  const { user } = useUserAccess();
-  const [milestones, setMilestones] = useState<EmployeeMilestone[]>([]);
-  const [loading, setLoading] = useState(true);
+export interface Milestone {
+  id: string;
+  title: string;
+  description: string;
+  order: number;
+  status: 'pending' | 'in_progress' | 'complete';
+}
 
-  useEffect(() => {
-    if (!user?.companyId || !employeeId) {
-      setMilestones([]);
-      setLoading(false);
-      return;
-    }
+export function useMilestones(completionPercent: number) {
+  const milestones = useMemo(() => {
+    const phases = [
+      {
+        id: 'preboarding',
+        title: 'Preboarding',
+        description: 'Initial setup and preparation.',
+        threshold: 0,
+      },
+      {
+        id: 'day1',
+        title: 'Day 1',
+        description: 'First day orientation.',
+        threshold: 20,
+      },
+      {
+        id: 'week1',
+        title: 'Week 1',
+        description: 'Learning the basics of your role.',
+        threshold: 40,
+      },
+      {
+        id: '30days',
+        title: '30 Days',
+        description: 'Becoming productive in your role.',
+        threshold: 60,
+      },
+      {
+        id: 'beyond',
+        title: 'Beyond',
+        description: 'Full integration into the team.',
+        threshold: 80,
+      },
+    ];
 
-    async function load() {
-      try {
-        const flows = await getEmployeeOnboardingFlows(
-          user.companyId,
-          employeeId,
-        );
+    return phases.map((phase, index) => {
+      let status: 'pending' | 'in_progress' | 'complete' = 'pending';
 
-        const merged = flows
-          .flatMap((f) => f.milestones)
-          .sort((a, b) => a.order - b.order);
-
-        setMilestones(merged);
-      } catch (err) {
-        console.error('Failed to load milestones:', err);
-        setMilestones([]);
-      } finally {
-        setLoading(false);
+      if (completionPercent >= phase.threshold + 20) {
+        status = 'complete';
+      } else if (completionPercent >= phase.threshold) {
+        status = 'in_progress';
       }
-    }
 
-    load();
-  }, [user?.companyId, employeeId]);
+      return {
+        id: phase.id,
+        title: phase.title,
+        description: phase.description,
+        order: index,
+        status,
+      };
+    });
+  }, [completionPercent]);
 
-  return { milestones, loading };
+  return { milestones, loading: false };
 }

@@ -14,6 +14,7 @@ import {
   getDocs,
   collection,
   Timestamp,
+  setDoc,
 } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 
@@ -96,18 +97,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const role = userData.role ?? 'employee';
       const companyId = userData.companyId ?? null;
 
-      let employeeId: string | null = null;
+      // employeeId now comes directly from the user document
+      let employeeId = userData.employeeId ?? null;
 
-      if (companyId && role === 'employee') {
+      // AUTO-LINK EMPLOYEE IF MISSING
+      if (!employeeId && companyId && firebaseUser.email) {
         const employeesSnap = await getDocs(
           collection(db, 'companies', companyId, 'employees'),
         );
 
         employeesSnap.forEach((docSnap) => {
-          if (docSnap.data().uid === firebaseUser.uid) {
+          const data = docSnap.data();
+
+          if (data.email === firebaseUser.email) {
             employeeId = docSnap.id;
           }
         });
+
+        // Save link to user document
+        if (employeeId) {
+          await setDoc(
+            doc(db, 'users', firebaseUser.uid),
+            { employeeId },
+            { merge: true },
+          );
+        }
       }
 
       let plan: Plan | null = null;
