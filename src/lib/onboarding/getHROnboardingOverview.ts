@@ -11,11 +11,11 @@ export interface HROnboardingFlowOverview {
 }
 
 export async function getHROnboardingOverview(companyId: string) {
-  // 1️⃣ Get onboarding flows for this company
+  // 1 Get onboarding flows for this company
   const flowsRef = collection(db, 'companies', companyId, 'onboardingFlows');
   const flowsSnap = await getDocs(flowsRef);
 
-  // 2️⃣ Get employees for this company (CORRECT PATH)
+  // 22 Get employees for this company (CORRECT PATH)
   const employeesRef = collection(db, 'companies', companyId, 'employees');
   const employeesSnap = await getDocs(employeesRef);
 
@@ -31,35 +31,37 @@ export async function getHROnboardingOverview(companyId: string) {
     let assigned = 0;
     let totalProgress = 0;
 
-    for (const emp of employeesSnap.docs) {
-      // 3️⃣ Employee onboarding data MUST live under /users
-      const userId = emp.id;
+    await Promise.all(
+      employeesSnap.docs.map(async (emp) => {
+        // 3️⃣ Employee onboarding data MUST live under /users
+        const userId = emp.id;
 
-      const userFlowsRef = collection(db, 'users', userId, 'onboarding');
+        const userFlowsRef = collection(db, 'users', userId, 'onboarding');
 
-      const userFlowsSnap = await getDocs(userFlowsRef);
+        const userFlowsSnap = await getDocs(userFlowsRef);
 
-      const matchingFlow = userFlowsSnap.docs.find(
-        (d) => d.data().flowId === flowId,
-      );
+        const matchingFlow = userFlowsSnap.docs.find(
+          (d) => d.data().flowId === flowId,
+        );
 
-      if (!matchingFlow) continue;
+        if (!matchingFlow) return;
 
-      assigned++;
+        assigned++;
 
-      const data = matchingFlow.data() as {
-        milestones?: { tasks?: { completed: boolean }[] }[];
-      };
+        const data = matchingFlow.data() as {
+          milestones?: { tasks?: { completed: boolean }[] }[];
+        };
 
-      const tasks = data.milestones?.flatMap((m) => m.tasks ?? []) ?? [];
+        const tasks = data.milestones?.flatMap((m) => m.tasks ?? []) ?? [];
 
-      const completed = tasks.filter((t) => t.completed).length;
+        const completed = tasks.filter((t) => t.completed).length;
 
-      const percent =
-        tasks.length > 0 ? Math.round((completed / tasks.length) * 100) : 0;
+        const percent =
+          tasks.length > 0 ? Math.round((completed / tasks.length) * 100) : 0;
 
-      totalProgress += percent;
-    }
+        totalProgress += percent;
+      }),
+    );
 
     results.push({
       flowId,

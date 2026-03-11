@@ -144,6 +144,19 @@ export function useEmployeeOnboarding(flowId: string) {
         },
         { merge: true },
       );
+
+      await setDoc(
+        doc(db, 'companies', companyId, 'employees', user.employeeId),
+        {
+          onboardingProgress: {
+            progressPercent: progress.percent,
+            tasksCompleted: progress.completed,
+            tasksTotal: progress.total,
+            currentMilestone: progress.milestone,
+          },
+        },
+        { merge: true },
+      );
     },
     [steps, user?.employeeId, companyId, flowId],
   );

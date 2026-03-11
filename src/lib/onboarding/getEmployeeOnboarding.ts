@@ -27,7 +27,7 @@ export interface EmployeeOnboardingFlow {
 
 export async function getEmployeeOnboardingFlows(
   companyId: string,
-  employeeId: string
+  employeeId: string,
 ) {
   const flowsRef = collection(
     db,
@@ -35,7 +35,7 @@ export async function getEmployeeOnboardingFlows(
     companyId,
     'employees',
     employeeId,
-    'onboardingFlows'
+    'onboardingFlows',
   );
 
   const snapshot = await getDocs(flowsRef);

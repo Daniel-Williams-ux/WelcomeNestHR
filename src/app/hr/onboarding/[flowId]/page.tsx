@@ -6,6 +6,8 @@ import { useUserAccess } from '@/hooks/useUserAccess';
 import { useCurrentCompany } from '@/hooks/useCurrentCompany';
 import { useEmployees } from '@/hooks/useEmployees';
 import { useOnboardingChecklist } from '@/hooks/useOnboardingChecklist';
+import { assignOnboardingFlowToEmployee } from '@/lib/onboarding/assignOnboardingFlow';
+import Link from 'next/link';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
@@ -45,23 +47,7 @@ async function handleAssign() {
   try {
     setAssigning(true);
 
-    await setDoc(
-      doc(
-        db,
-        'companies',
-        companyId,
-        'employees',
-        selectedEmployeeId,
-        'onboardingFlows',
-        flowId,
-      ),
-      {
-        flowId,
-        assignedAt: serverTimestamp(),
-        status: 'active',
-      },
-    );
-
+    await assignOnboardingFlowToEmployee(companyId, selectedEmployeeId, flowId);
     console.log('Assignment successful.');
 
     setSelectedEmployeeId('');
@@ -129,7 +115,16 @@ async function handleAssign() {
           </div>
         )}
       </div>
-      <h1 className="text-xl font-semibold">Onboarding checklist</h1>
+      <div className="flex justify-between items-center">
+        <h1 className="text-xl font-semibold">Onboarding checklist</h1>
+
+        <Link
+          href={`/hr/onboarding/${flowId}/edit`}
+          className="px-3 py-2 text-sm bg-gray-200 rounded"
+        >
+          Edit Flow
+        </Link>
+      </div>
 
       {/* ─────────────────────────────────────────────
           CREATE ITEM

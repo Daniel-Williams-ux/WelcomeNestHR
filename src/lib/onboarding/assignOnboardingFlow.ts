@@ -93,6 +93,7 @@ export async function assignOnboardingFlowToEmployee(
     },
     { merge: true },
   );
+  console.log('ASSIGNING FLOW', employeeId, flowId);
 
   await batch.commit();
 }
