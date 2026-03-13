@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, onSnapshot, getDocs } from 'firebase/firestore';
+import { collection, onSnapshot, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useUserAccess } from '@/hooks/useUserAccess';
 
@@ -40,7 +40,7 @@ export default function HROnboardingProgressPage() {
           const flowId = data?.onboarding?.primaryFlowId;
 
           if (flowId) {
-            const progressRef = collection(
+            const flowRef = doc(
               db,
               'companies',
               companyId,
@@ -48,18 +48,32 @@ export default function HROnboardingProgressPage() {
               docSnap.id,
               'onboardingFlows',
               flowId,
-              'progress',
             );
 
-            const progressSnap = await getDocs(progressRef);
+            const flowSnap = await getDoc(flowRef);
 
-            if (!progressSnap.empty) {
-              const progress = progressSnap.docs[0].data();
+            if (flowSnap.exists()) {
+              const flowData = flowSnap.data() as any;
 
-              progressPercent = progress.progressPercent ?? 0;
-              currentMilestone = progress.currentMilestone ?? 'preboarding';
-              tasksCompleted = progress.tasksCompleted ?? 0;
-              tasksTotal = progress.tasksTotal ?? 0;
+              const milestones = flowData.milestones ?? [];
+              const tasks = milestones.flatMap((m: any) => m.tasks ?? []);
+
+              const total = tasks.length;
+              const completed = tasks.filter(
+                (t: any) => t.completed === true,
+              ).length;
+
+              const percent =
+                total > 0 ? Math.round((completed / total) * 100) : 0;
+
+              progressPercent = percent;
+              tasksCompleted = completed;
+              tasksTotal = total;
+
+              if (percent >= 80) currentMilestone = 'beyond';
+              else if (percent >= 60) currentMilestone = '30days';
+              else if (percent >= 40) currentMilestone = 'week1';
+              else if (percent >= 20) currentMilestone = 'day1';
             }
           }
 
@@ -106,18 +120,12 @@ export default function HROnboardingProgressPage() {
             <tr key={emp.employeeId} className="border-t">
               <td className="p-3">{emp.name}</td>
 
-              <td className="p-3">
-                {emp.progressPercent !== undefined
-                  ? `${emp.progressPercent}%`
-                  : '—'}
-              </td>
+              <td className="p-3">{emp.progressPercent}%</td>
 
-              <td className="p-3">{emp.currentMilestone ?? '—'}</td>
+              <td className="p-3">{emp.currentMilestone}</td>
 
               <td className="p-3">
-                {emp.tasksCompleted !== undefined
-                  ? `${emp.tasksCompleted} / ${emp.tasksTotal}`
-                  : '—'}
+                {emp.tasksCompleted} / {emp.tasksTotal}
               </td>
             </tr>
           ))}

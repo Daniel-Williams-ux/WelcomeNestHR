@@ -1,5 +1,7 @@
 import { db } from '@/lib/firebase';
 import { collection, doc, getDoc, getDocs } from 'firebase/firestore';
+import { calcProgress } from './calcProgress';
+import { getMilestoneStatuses } from './getMilestoneStatuses';
 
 export interface EmployeeTask {
   id: string;
@@ -40,8 +42,38 @@ export async function getEmployeeOnboardingFlows(
 
   const snapshot = await getDocs(flowsRef);
 
-  return snapshot.docs.map((doc) => ({
-    flowId: doc.id,
-    ...(doc.data() as Omit<EmployeeOnboardingFlow, 'flowId'>),
-  }));
+  return snapshot.docs.map((doc) => {
+    const flow = doc.data() as Omit<EmployeeOnboardingFlow, 'flowId'>;
+
+    const tasks = flow.milestones.flatMap((m) => m.tasks);
+
+    const milestones = flow.milestones.map((m) => ({
+      id: m.id,
+      triggerPercent: m.order * 25,
+    }));
+
+    const { percent } = calcProgress(tasks, milestones);
+
+    const statuses = getMilestoneStatuses(percent, milestones);
+
+    const updatedMilestones = flow.milestones.map((m) => {
+      const status = statuses.find((s) => s.id === m.id)?.status;
+
+      let mappedStatus: 'upcoming' | 'in_progress' | 'complete' = 'upcoming';
+
+      if (status === 'completed') mappedStatus = 'complete';
+      if (status === 'current') mappedStatus = 'in_progress';
+
+      return {
+        ...m,
+        status: mappedStatus,
+      };
+    });
+
+    return {
+      flowId: doc.id,
+      ...flow,
+      milestones: updatedMilestones,
+    };
+  });
 }

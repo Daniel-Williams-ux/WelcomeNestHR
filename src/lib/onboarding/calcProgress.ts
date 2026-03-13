@@ -1,4 +1,17 @@
-export function calcProgress(steps: { completed: boolean }[]) {
+export interface MilestoneConfig {
+  id: string;
+  triggerPercent: number;
+}
+
+export interface MilestoneConfig {
+  id: string;
+  triggerPercent: number;
+}
+
+export function calcProgress(
+  steps: { completed: boolean }[],
+  milestones: MilestoneConfig[],
+) {
   const total = steps.length;
   const completed = steps.filter((s) => s.completed).length;
 
@@ -6,15 +19,20 @@ export function calcProgress(steps: { completed: boolean }[]) {
 
   let milestone = 'preboarding';
 
-  if (percent >= 80) milestone = 'beyond';
-  else if (percent >= 60) milestone = '30days';
-  else if (percent >= 40) milestone = 'week1';
-  else if (percent >= 20) milestone = 'day1';
+  const sortedMilestones = [...milestones].sort(
+    (a, b) => a.triggerPercent - b.triggerPercent,
+  );
+
+  for (const m of sortedMilestones) {
+    if (percent >= m.triggerPercent) {
+      milestone = m.id;
+    }
+  }
 
   return {
     percent,
     completed,
     total,
-    milestone,
+    milestone, // current milestone
   };
 }

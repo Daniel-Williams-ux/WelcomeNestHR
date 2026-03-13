@@ -22,7 +22,7 @@ export function useHROnboardingState(): Result {
   useEffect(() => {
     if (sessionLoading) return;
 
-    // 1️⃣ No company → onboarding impossible
+    // 1️1 No company → onboarding impossible
     if (!companyId) {
       setState('NO_COMPANY');
       setLoading(false);

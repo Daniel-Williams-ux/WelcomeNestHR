@@ -1,6 +1,8 @@
 // src/lib/onboarding/getHROnboardingOverview.ts
 import { db } from '@/lib/firebase';
 import { collection, getDocs } from 'firebase/firestore';
+import { calcProgress } from './calcProgress';
+import { getMilestoneStatuses } from './getMilestoneStatuses';
 
 export interface HROnboardingFlowOverview {
   flowId: string;
@@ -15,7 +17,7 @@ export async function getHROnboardingOverview(companyId: string) {
   const flowsRef = collection(db, 'companies', companyId, 'onboardingFlows');
   const flowsSnap = await getDocs(flowsRef);
 
-  // 22 Get employees for this company (CORRECT PATH)
+  // 2 Get employees for this company (CORRECT PATH)
   const employeesRef = collection(db, 'companies', companyId, 'employees');
   const employeesSnap = await getDocs(employeesRef);
 
@@ -26,6 +28,7 @@ export async function getHROnboardingOverview(companyId: string) {
     const flowData = flowDoc.data() as {
       name: string;
       type: 'primary' | 'secondary';
+      milestones?: { id: string; triggerPercent?: number }[];
     };
 
     let assigned = 0;
@@ -33,16 +36,21 @@ export async function getHROnboardingOverview(companyId: string) {
 
     await Promise.all(
       employeesSnap.docs.map(async (emp) => {
-        // 3️⃣ Employee onboarding data MUST live under /users
+        // 3 Employee onboarding data MUST live under /users
         const userId = emp.id;
 
-        const userFlowsRef = collection(db, 'users', userId, 'onboarding');
+        const userFlowsRef = collection(
+          db,
+          'companies',
+          companyId,
+          'employees',
+          userId,
+          'onboardingFlows',
+        );
 
         const userFlowsSnap = await getDocs(userFlowsRef);
 
-        const matchingFlow = userFlowsSnap.docs.find(
-          (d) => d.data().flowId === flowId,
-        );
+        const matchingFlow = userFlowsSnap.docs.find((d) => d.id === flowId);
 
         if (!matchingFlow) return;
 
@@ -54,12 +62,20 @@ export async function getHROnboardingOverview(companyId: string) {
 
         const tasks = data.milestones?.flatMap((m) => m.tasks ?? []) ?? [];
 
-        const completed = tasks.filter((t) => t.completed).length;
+        const milestones =
+          flowData.milestones
+            ?.filter((m) => m.triggerPercent !== undefined)
+            .map((m) => ({
+              id: m.id,
+              triggerPercent: m.triggerPercent as number,
+            })) ?? [];
 
-        const percent =
-          tasks.length > 0 ? Math.round((completed / tasks.length) * 100) : 0;
+        const { percent } = calcProgress(tasks, milestones);
+
+        getMilestoneStatuses(percent, milestones);
 
         totalProgress += percent;
+
       }),
     );
 

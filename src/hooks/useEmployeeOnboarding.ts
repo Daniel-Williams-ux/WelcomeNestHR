@@ -1,19 +1,9 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import {
-  collection,
-  doc,
-  getDocs,
-  setDoc,
-  serverTimestamp,
-  orderBy,
-  query,
-} from 'firebase/firestore';
-
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useUserAccess } from '@/hooks/useUserAccess';
-import { calcProgress } from '@/lib/onboarding/calcProgress';
 
 export type EmployeeOnboardingStep = {
   id: string;
@@ -25,7 +15,7 @@ export type EmployeeOnboardingStep = {
 
 export function useEmployeeOnboarding(flowId: string) {
   const { user } = useUserAccess();
-  const companyId = user?.companyId; //  FIX: employee source of truth
+  const companyId = user?.companyId;
 
   const [steps, setSteps] = useState<EmployeeOnboardingStep[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,50 +27,38 @@ export function useEmployeeOnboarding(flowId: string) {
     }
 
     async function load() {
-      setLoading(true);
-
-      // Load HR checklist
-      const checklistQuery = collection(
+      const flowRef = doc(
         db,
         'companies',
         companyId,
+        'employees',
+        user.employeeId,
         'onboardingFlows',
         flowId,
-        'checklistItems',
-      );
-      const checklistSnap = await getDocs(checklistQuery);
-
-      // Load employee progress
-      const progressSnap = await getDocs(
-        collection(
-          db,
-          'companies',
-          companyId,
-          'employees',
-          user.employeeId,
-          'onboardingFlows',
-          flowId,
-          'progress',
-        ),
       );
 
-      const progressMap = new Map<string, boolean>();
-      progressSnap.forEach((doc) => {
-        progressMap.set(doc.id, doc.data().completed === true);
-      });
+      const flowSnap = await getDoc(flowRef);
 
-      const merged = checklistSnap.docs.map((doc) => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          title: data.title,
-          description: data.description || undefined,
-          order: data.order,
-          completed: progressMap.get(doc.id) ?? false,
-        };
-      });
+      if (!flowSnap.exists()) {
+        setSteps([]);
+        setLoading(false);
+        return;
+      }
 
-      setSteps(merged);
+      const flowData = flowSnap.data() as any;
+      const milestones = flowData.milestones ?? [];
+
+      const tasks = milestones.flatMap((m: any) =>
+        (m.tasks ?? []).map((t: any) => ({
+          id: t.id,
+          title: t.title,
+          description: t.description ?? undefined,
+          order: m.order ?? 0,
+          completed: t.completed === true,
+        })),
+      );
+
+      setSteps(tasks);
       setLoading(false);
     }
 
@@ -93,70 +71,43 @@ export function useEmployeeOnboarding(flowId: string) {
 
       const newCompleted = !completed;
 
-      // 1 Update Firestore task progress
-      await setDoc(
-        doc(
-          db,
-          'companies',
-          companyId,
-          'employees',
-          user.employeeId,
-          'onboardingFlows',
-          flowId,
-          'progress',
-          stepId,
+      const flowRef = doc(
+        db,
+        'companies',
+        companyId,
+        'employees',
+        user.employeeId,
+        'onboardingFlows',
+        flowId,
+      );
+
+      const flowSnap = await getDoc(flowRef);
+      if (!flowSnap.exists()) return;
+
+      const flowData = flowSnap.data() as any;
+      const milestones = flowData.milestones ?? [];
+
+      const updatedMilestones = milestones.map((m: any) => ({
+        ...m,
+        tasks: (m.tasks ?? []).map((t: any) =>
+          t.id === stepId ? { ...t, completed: newCompleted } : t,
         ),
+      }));
+
+      await setDoc(
+        flowRef,
         {
-          completed: newCompleted,
+          milestones: updatedMilestones,
           updatedAt: serverTimestamp(),
         },
         { merge: true },
       );
 
-      // 2 Build updated steps locally
       const updatedSteps = steps.map((s) =>
         s.id === stepId ? { ...s, completed: newCompleted } : s,
       );
 
-      // 3 Update UI
       setSteps(updatedSteps);
-
-      // 4 Calculate progress summary
-      const progress = calcProgress(updatedSteps);
-
-      // 5 Persist progress summary
-      await setDoc(
-        doc(
-          db,
-          'companies',
-          companyId,
-          'employees',
-          user.employeeId,
-          'onboardingFlows',
-          flowId,
-        ),
-        {
-          progressPercent: progress.percent,
-          tasksCompleted: progress.completed,
-          tasksTotal: progress.total,
-          currentMilestone: progress.milestone,
-          updatedAt: serverTimestamp(),
-        },
-        { merge: true },
-      );
-
-      await setDoc(
-        doc(db, 'companies', companyId, 'employees', user.employeeId),
-        {
-          onboardingProgress: {
-            progressPercent: progress.percent,
-            tasksCompleted: progress.completed,
-            tasksTotal: progress.total,
-            currentMilestone: progress.milestone,
-          },
-        },
-        { merge: true },
-      );
     },
     [steps, user?.employeeId, companyId, flowId],
   );
