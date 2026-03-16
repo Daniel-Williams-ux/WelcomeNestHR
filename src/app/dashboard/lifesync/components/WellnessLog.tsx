@@ -2,14 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
+import { addWellnessEntry } from '@/lib/lifesync';
 import { useUserAccess } from "@/hooks/useUserAccess";
 import {
   collection,
-  addDoc,
   query,
   orderBy,
   onSnapshot,
-  serverTimestamp,
 } from "firebase/firestore";
 
 type WellnessEntry = {
@@ -23,7 +22,7 @@ export default function WellnessLog() {
   const [logs, setLogs] = useState<WellnessEntry[]>([]);
   const [saving, setSaving] = useState(false);
 
-  // 🔥 Load wellness log entries in real-time
+  //  Load wellness log entries in real-time
   useEffect(() => {
     if (!user) return;
 
@@ -51,19 +50,13 @@ export default function WellnessLog() {
     return () => unsubscribe();
   }, [user]);
 
-  // ✅ Save new log entry
+  //  Save new log entry
   async function save() {
     if (!user || !entry.trim()) return;
 
     setSaving(true);
     try {
-      await addDoc(
-        collection(db, "users", user.uid, "lifesync", "wellnessLog", "entries"),
-        {
-          text: entry.trim(),
-          createdAt: serverTimestamp(),
-        }
-      );
+      await addWellnessEntry(user.uid, entry.trim());
       setEntry("");
     } catch (err) {
       console.error("🔥 Error saving wellness entry:", err);

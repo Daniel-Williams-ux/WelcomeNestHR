@@ -33,6 +33,14 @@ export function HRSidebar({ onNavigate }: { onNavigate?: () => void }) {
         </Link>
 
         <Link
+          href="/hr/lifesync"
+          onClick={onNavigate}
+          className="block hover:text-[#00ACC1]"
+        >
+          LifeSync
+        </Link>
+
+        <Link
           href="/hr/compliance"
           onClick={onNavigate}
           className="block hover:text-[#00ACC1]"

@@ -15,7 +15,8 @@ export type EmployeeOnboardingStep = {
 
 export function useEmployeeOnboarding(flowId: string) {
   const { user } = useUserAccess();
-  const companyId = user?.companyId;
+  // const companyId = user?.companyId;
+  const companyId = '744J9dEfPKRZObDwEkv2';
 
   const [steps, setSteps] = useState<EmployeeOnboardingStep[]>([]);
   const [loading, setLoading] = useState(true);
@@ -103,13 +104,27 @@ export function useEmployeeOnboarding(flowId: string) {
         { merge: true },
       );
 
-      const updatedSteps = steps.map((s) =>
-        s.id === stepId ? { ...s, completed: newCompleted } : s,
-      );
+      // reload from Firestore so HR dashboard sees update
+      const updatedFlowSnap = await getDoc(flowRef);
 
-      setSteps(updatedSteps);
+      if (updatedFlowSnap.exists()) {
+        const flowData = updatedFlowSnap.data() as any;
+        const milestones = flowData.milestones ?? [];
+
+        const tasks = milestones.flatMap((m: any) =>
+          (m.tasks ?? []).map((t: any) => ({
+            id: t.id,
+            title: t.title,
+            description: t.description ?? undefined,
+            order: m.order ?? 0,
+            completed: t.completed === true,
+          })),
+        );
+
+        setSteps(tasks);
+      }
     },
-    [steps, user?.employeeId, companyId, flowId],
+    [user?.employeeId, companyId, flowId],
   );
 
   return {

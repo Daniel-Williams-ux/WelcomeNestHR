@@ -1,17 +1,17 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, onSnapshot, doc, getDoc } from 'firebase/firestore';
+import { collection, onSnapshot, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useUserAccess } from '@/hooks/useUserAccess';
 
 type EmployeeProgress = {
   employeeId: string;
   name: string;
-  progressPercent?: number;
-  currentMilestone?: string;
-  tasksCompleted?: number;
-  tasksTotal?: number;
+  progressPercent: number;
+  currentMilestone: string;
+  tasksCompleted: number;
+  tasksTotal: number;
 };
 
 export default function HROnboardingProgressPage() {
@@ -29,61 +29,60 @@ export default function HROnboardingProgressPage() {
       async (snap) => {
         const list: EmployeeProgress[] = [];
 
-        for (const docSnap of snap.docs) {
-          const data = docSnap.data();
+        for (const empDoc of snap.docs) {
+          const empData = empDoc.data();
+          const employeeId = empDoc.id;
 
-          let progressPercent = 0;
-          let currentMilestone = 'preboarding';
-          let tasksCompleted = 0;
-          let tasksTotal = 0;
+          let percent = 0;
+          let completed = 0;
+          let total = 0;
+          let milestone = 'Preboarding';
 
-          const flowId = data?.onboarding?.primaryFlowId;
+          const flowsRef = collection(
+            db,
+            'companies',
+            companyId,
+            'employees',
+            employeeId,
+            'onboardingFlows',
+          );
 
-          if (flowId) {
-            const flowRef = doc(
-              db,
-              'companies',
-              companyId,
-              'employees',
-              docSnap.id,
-              'onboardingFlows',
-              flowId,
+          const flowsSnap = await getDocs(flowsRef);
+
+          if (!flowsSnap.empty) {
+            const flowData = flowsSnap.docs[0].data() as any;
+
+            const milestones = flowData.milestones ?? [];
+            const tasks = milestones.flatMap((m: any) => m.tasks ?? []);
+
+            total = tasks.length;
+
+            completed = tasks.filter((t: any) => t.completed === true).length;
+
+            percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+            const activeMilestone = milestones.find((m: any) =>
+              (m.tasks ?? []).some((t: any) => !t.completed),
             );
 
-            const flowSnap = await getDoc(flowRef);
+            const labels = [
+              'Preboarding',
+              'Day 1',
+              'Week 1',
+              '30 Days',
+              'Beyond',
+            ];
 
-            if (flowSnap.exists()) {
-              const flowData = flowSnap.data() as any;
-
-              const milestones = flowData.milestones ?? [];
-              const tasks = milestones.flatMap((m: any) => m.tasks ?? []);
-
-              const total = tasks.length;
-              const completed = tasks.filter(
-                (t: any) => t.completed === true,
-              ).length;
-
-              const percent =
-                total > 0 ? Math.round((completed / total) * 100) : 0;
-
-              progressPercent = percent;
-              tasksCompleted = completed;
-              tasksTotal = total;
-
-              if (percent >= 80) currentMilestone = 'beyond';
-              else if (percent >= 60) currentMilestone = '30days';
-              else if (percent >= 40) currentMilestone = 'week1';
-              else if (percent >= 20) currentMilestone = 'day1';
-            }
+            milestone = labels[activeMilestone?.order ?? 4] ?? 'Beyond';
           }
 
           list.push({
-            employeeId: docSnap.id,
-            name: data.name ?? 'Unnamed',
-            progressPercent,
-            currentMilestone,
-            tasksCompleted,
-            tasksTotal,
+            employeeId,
+            name: empData.name ?? 'Employee',
+            progressPercent: percent,
+            currentMilestone: milestone,
+            tasksCompleted: completed,
+            tasksTotal: total,
           });
         }
 
@@ -119,11 +118,8 @@ export default function HROnboardingProgressPage() {
           {employees.map((emp) => (
             <tr key={emp.employeeId} className="border-t">
               <td className="p-3">{emp.name}</td>
-
               <td className="p-3">{emp.progressPercent}%</td>
-
               <td className="p-3">{emp.currentMilestone}</td>
-
               <td className="p-3">
                 {emp.tasksCompleted} / {emp.tasksTotal}
               </td>

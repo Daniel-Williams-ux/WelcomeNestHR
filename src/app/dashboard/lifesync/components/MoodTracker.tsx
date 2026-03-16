@@ -3,15 +3,14 @@
 import { useEffect, useState } from "react";
 import { Smile, Frown, Meh, Heart } from "lucide-react";
 import { db } from "@/lib/firebase";
+import { addMoodCheckin } from '@/lib/lifesync';
 import { useUserAccess } from "@/hooks/useUserAccess";
 import {
   collection,
-  addDoc,
   query,
   orderBy,
   limit,
   onSnapshot,
-  serverTimestamp,
 } from "firebase/firestore";
 
 type MoodValue = "happy" | "neutral" | "sad" | "grateful";
@@ -30,7 +29,7 @@ export default function MoodTracker() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  // 🔥 Load last saved mood
+  //  Load last saved mood
   useEffect(() => {
     if (!user) return;
 
@@ -68,27 +67,18 @@ export default function MoodTracker() {
 
     setSaving(true);
     try {
-      await addDoc(
-        collection(db, "users", user.uid, "lifesync", "moodTracker", "entries"),
-        {
-          mood,
-          note,
-          createdAt: serverTimestamp(), // use Firestore timestamp
-        }
-      );
+      await addMoodCheckin(user.uid, mood, note);
       resetForm();
     } catch (error) {
-      console.error("🔥 Error saving mood:", error);
+      console.error(' Error saving mood:', error);
     } finally {
       setSaving(false);
     }
   }
 
   function resetForm() {
-    setMood(null);
-    setNote("");
-  }
-
+  setNote("");
+}
   return (
     <section
       aria-labelledby="mood-title"
@@ -116,14 +106,14 @@ export default function MoodTracker() {
               aria-checked={selected}
               onClick={() => setMood(value)}
               className={[
-                "flex flex-col items-center justify-center gap-1 rounded-xl border px-3 py-3",
-                "transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#FB8C00]",
+                'flex flex-col items-center justify-center gap-1 rounded-xl border px-3 py-3',
+                'transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#FB8C00]',
                 selected
-                  ? "bg-gradient-to-r from-[#FFB300] to-[#FB8C00] text-white border-transparent"
-                  : "border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-800 dark:text-gray-200",
-              ].join(" ")}
+                  ? 'bg-gradient-to-r from-[#FFB300] to-[#FB8C00] text-white border-transparent'
+                  : 'border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-800 dark:text-gray-200',
+              ].join(' ')}
             >
-              <Icon className={selected ? "w-6 h-6" : "w-6 h-6 opacity-90"} />
+              <Icon className={selected ? 'w-6 h-6' : 'w-6 h-6 opacity-90'} />
               <span className="text-xs sm:text-sm">{label}</span>
             </button>
           );
@@ -153,14 +143,14 @@ export default function MoodTracker() {
           disabled={!mood || saving}
           onClick={saveMood}
           className={[
-            "inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold",
-            "bg-gradient-to-r from-[#FFB300] to-[#FB8C00] text-white",
-            "disabled:opacity-60 disabled:cursor-not-allowed",
-            "focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#FB8C00]",
-          ].join(" ")}
+            'inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold',
+            'bg-gradient-to-r from-[#FFB300] to-[#FB8C00] text-white',
+            'disabled:opacity-60 disabled:cursor-not-allowed',
+            'focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#FB8C00]',
+          ].join(' ')}
           aria-disabled={!mood || saving}
         >
-          {saving ? "Saving..." : loading ? "Loading..." : "Save Mood"}
+          {saving ? 'Saving...' : 'Save Mood'}
         </button>
         <button
           type="button"

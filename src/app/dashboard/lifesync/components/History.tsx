@@ -13,8 +13,9 @@ import {
 
 type HistoryEntry = {
   id: string;
-  type: "mood" | "wellness";
+  type: 'mood' | 'wellness';
   date: string;
+  timestamp: number;
   mood?: number;
   note?: string;
   text?: string;
@@ -56,14 +57,15 @@ export default function History() {
     const unsubMoods = onSnapshot(moodsQuery, (snapshot) => {
       const moodData = snapshot.docs.map((doc) => {
         const d = doc.data();
+        const ts = d.createdAt?.toDate();
+
         return {
           id: doc.id,
-          type: "mood" as const,
-          date: d.createdAt
-            ? new Date(d.createdAt.toDate()).toLocaleString()
-            : "Today",
+          type: 'mood' as const,
+          date: ts ? ts.toLocaleString() : 'Today',
+          timestamp: ts ? ts.getTime() : Date.now(),
           mood: d.mood ? moodValueToNumber(d.mood) : 3,
-          note: d.note || "",
+          note: d.note || '',
         };
       });
       mergeAndSort(moodData, null);
@@ -72,13 +74,14 @@ export default function History() {
     const unsubWellness = onSnapshot(wellnessQuery, (snapshot) => {
       const wellnessData = snapshot.docs.map((doc) => {
         const d = doc.data();
+        const ts = d.createdAt?.toDate();
+
         return {
           id: doc.id,
-          type: "wellness" as const,
-          date: d.createdAt
-            ? new Date(d.createdAt.toDate()).toLocaleString()
-            : "Today",
-          text: d.text || "",
+          type: 'wellness' as const,
+          date: ts ? ts.toLocaleString() : 'Today',
+          timestamp: ts ? ts.getTime() : Date.now(),
+          text: d.text || '',
         };
       });
       mergeAndSort(null, wellnessData);
