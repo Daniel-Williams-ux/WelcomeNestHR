@@ -4,52 +4,126 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { ShieldCheck } from 'lucide-react';
 import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase'; // adjust based on your setup
-import { useUserAccess } from '@/hooks/useUserAccess'; // assumes you have an auth hook
+import { db } from '@/lib/firebase';
+import { useUserAccess } from '@/hooks/useUserAccess';
 
 interface ComplianceModule {
   id: string;
   title: string;
   description: string;
-  type: 'policy' | 'quiz';
+  type: 'policy' | 'training';
+  status?: 'pending' | 'completed';
 }
 
-export default function CompliancePage({ params }: { params?: any }) {
+export default function CompliancePage() {
   const { user } = useUserAccess();
+
   const [modules, setModules] = useState<ComplianceModule[]>([]);
-  const [progress, setProgress] = useState<Record<string, any>>({});
-  const orgId = params?.orgId || 'defaultOrg'; // adjust how you resolve orgId
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (!orgId || !user) return;
+ useEffect(() => {
+   if (!user?.uid) return;
 
-    const fetchData = async () => {
-      // Fetch compliance modules
-      const snap = await getDocs(
-        collection(db, 'organizations', orgId, 'complianceModules'),
-      );
-      const list = snap.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as ComplianceModule[];
-      setModules(list);
+   const init = async () => {
+     try {
+       // 🔥 ALWAYS fetch fresh user doc
+       const userRef = doc(db, 'users', user.uid);
+       const userSnap = await getDoc(userRef);
 
-      // Fetch user progress
-      const ref = doc(
-        db,
-        'organizations',
-        orgId,
-        'complianceProgress',
-        user.uid,
-      );
-      const progSnap = await getDoc(ref);
-      if (progSnap.exists()) {
-        setProgress(progSnap.data() as Record<string, any>);
-      }
-    };
+       if (!userSnap.exists()) {
+         setModules([]);
+         setLoading(false);
+         return;
+       }
 
-    fetchData();
-  }, [orgId, user]);
+       const data = userSnap.data();
+
+       const companyId = data.companyId;
+       const employeeId = data.employeeId;
+
+       console.log('employeeId from userDoc:', employeeId);
+
+       if (!companyId || !employeeId) {
+         setModules([]);
+         setLoading(false);
+         return;
+       }
+
+       // =========================
+       // FETCH ASSIGNMENTS
+       // =========================
+       const assignSnap = await getDocs(
+         collection(db, 'companies', companyId, 'complianceAssignments'),
+       );
+
+       const myAssignments = assignSnap.docs
+         .map((doc) => {
+           const data = doc.data();
+
+           return {
+             id: doc.id,
+             employeeId: String(data.employeeId),
+             moduleId: data.moduleId,
+             status: data.status,
+           };
+         })
+         .filter((a) => {
+           console.log('Comparing:', a.employeeId, employeeId);
+           return a.employeeId === String(employeeId);
+         });
+
+       console.log('Filtered assignments:', myAssignments);
+
+       if (myAssignments.length === 0) {
+         setModules([]);
+         setLoading(false);
+         return;
+       }
+
+       // =========================
+       // FETCH MODULES
+       // =========================
+       const moduleSnap = await getDocs(
+         collection(db, 'companies', companyId, 'complianceModules'),
+       );
+
+       const moduleMap: Record<string, any> = {};
+
+       moduleSnap.docs.forEach((doc) => {
+         moduleMap[doc.id] = {
+           id: doc.id,
+           ...doc.data(),
+         };
+       });
+
+       // =========================
+       // MERGE
+       // =========================
+       const assignedModules = myAssignments.map((a: any) => ({
+         ...moduleMap[a.moduleId],
+         status: a.status || 'pending',
+       }));
+
+       setModules(assignedModules);
+     } catch (err) {
+       console.error('Compliance load error:', err);
+     } finally {
+       setLoading(false);
+     }
+   };
+
+   init();
+ }, [user?.uid]);
+  // =========================
+  // LOADING STATE
+  // =========================
+  if (loading) {
+    return (
+      <div className="p-6 text-sm text-gray-500">
+        Loading compliance modules...
+      </div>
+    );
+  }
 
   return (
     <motion.section
@@ -68,13 +142,12 @@ export default function CompliancePage({ params }: { params?: any }) {
 
       {modules.length === 0 ? (
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          No compliance modules yet. Please check back later.
+          No compliance modules assigned to you yet.
         </p>
       ) : (
         <ul className="space-y-4">
           {modules.map((m) => {
-            const status = progress[m.id]?.status || 'not_started';
-            const score = progress[m.id]?.score ?? null;
+            const status = m.status || 'pending';
 
             return (
               <li
@@ -90,23 +163,19 @@ export default function CompliancePage({ params }: { params?: any }) {
                       {m.description}
                     </p>
                   </div>
+
                   <div className="flex items-center gap-2">
                     <span
                       className={`px-2 py-1 rounded-full text-xs font-medium ${
                         status === 'completed'
                           ? 'bg-green-100 text-green-700'
-                          : status === 'in_progress'
+                          : status === 'pending'
                             ? 'bg-yellow-100 text-yellow-700'
                             : 'bg-gray-100 text-gray-600'
                       }`}
                     >
                       {status.replace('_', ' ')}
                     </span>
-                    {score !== null && (
-                      <span className="text-xs text-gray-500 dark:text-gray-400">
-                        Score: {score}%
-                      </span>
-                    )}
                   </div>
                 </div>
               </li>

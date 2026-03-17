@@ -33,11 +33,11 @@ export function HRSidebar({ onNavigate }: { onNavigate?: () => void }) {
         </Link>
 
         <Link
-          href="/hr/lifesync"
+          href="/hr/payroll"
           onClick={onNavigate}
           className="block hover:text-[#00ACC1]"
         >
-          LifeSync
+          Payroll
         </Link>
 
         <Link
@@ -49,11 +49,11 @@ export function HRSidebar({ onNavigate }: { onNavigate?: () => void }) {
         </Link>
 
         <Link
-          href="/hr/payroll"
+          href="/hr/lifesync"
           onClick={onNavigate}
           className="block hover:text-[#00ACC1]"
         >
-          Payroll
+          LifeSync
         </Link>
       </nav>
     </div>
