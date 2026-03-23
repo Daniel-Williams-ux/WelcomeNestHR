@@ -133,6 +133,12 @@ export default function HRCompliancePage() {
     fetchModules(companyId);
     fetchEmployees(companyId);
     fetchAssignments(companyId);
+
+    const interval = setInterval(() => {
+      fetchAssignments(companyId);
+    }, 3000); // refresh every 3s
+
+    return () => clearInterval(interval);
   }, [companyId]);
 
   // =========================
@@ -160,22 +166,43 @@ export default function HRCompliancePage() {
   // ASSIGN
   // =========================
   const handleAssign = async (moduleId: string) => {
-    if (!employeeId || !companyId) return;
+    if (!employeeId || !companyId) {
+      console.log('❌ Missing employeeId or companyId', {
+        employeeId,
+        companyId,
+      });
+      return;
+    }
 
-    await addDoc(
-      collection(db, 'companies', companyId, 'complianceAssignments'),
-      {
+    console.log('🚀 Assign clicked', { moduleId, employeeId, companyId });
+
+    try {
+      console.log('🚀 START ASSIGNMENT');
+
+      const payload = {
         moduleId,
         employeeId,
         status: 'pending',
         createdAt: serverTimestamp(),
-      },
-    );
+      };
 
-    setEmployeeId('');
-    setAssigningId(null);
+      console.log('📦 Payload:', payload);
+      console.log('🏢 companyId:', companyId);
 
-    fetchAssignments(companyId); // 🔥 CRITICAL FIX
+      const docRef = await addDoc(
+        collection(db, 'companies', companyId, 'complianceAssignments'),
+        payload,
+      );
+
+      console.log('✅ SUCCESS:', docRef.id);
+
+      setEmployeeId('');
+      setAssigningId(null);
+
+      fetchAssignments(companyId);
+    } catch (error) {
+      console.error('❌ Assignment failed:', error);
+    }
   };
 
   // =========================
@@ -184,6 +211,64 @@ export default function HRCompliancePage() {
   if (loading) {
     return <div className="p-6">Loading...</div>;
   }
+
+  const validAssignments = assignments.filter((a) =>
+    modules.some((m) => m.id === a.moduleId),
+  );
+
+  const uniqueModules = Array.from(
+    new Set(validAssignments.map((a) => a.moduleId)),
+  );
+
+  const completedModules = uniqueModules.filter((moduleId) => {
+    const moduleAssignments = validAssignments.filter(
+      (a) => a.moduleId === moduleId,
+    );
+
+    return moduleAssignments.some((a) => a.status === 'completed');
+  });
+
+  const complianceRate =
+    uniqueModules.length === 0
+      ? 0
+      : Math.round((completedModules.length / uniqueModules.length) * 100);
+  
+  const employeeCompliance = employees.map((emp) => {
+    const empAssignments = assignments.filter((a) => a.employeeId === emp.id);
+
+    const validAssignments = empAssignments.filter((a) =>
+      modules.some((m) => m.id === a.moduleId),
+    );
+
+    const uniqueModules = Array.from(
+      new Set(validAssignments.map((a) => a.moduleId)),
+    );
+
+    const completedModules = uniqueModules.filter((moduleId) => {
+      const moduleAssignments = validAssignments.filter(
+        (a) => a.moduleId === moduleId,
+      );
+
+      return moduleAssignments.some((a) => a.status === 'completed');
+    });
+
+
+    const percent =
+      uniqueModules.length === 0
+        ? 0
+        : Math.round((completedModules.length / uniqueModules.length) * 100);
+
+    return {
+      employee: emp,
+      percent,
+      total: uniqueModules.length,
+      completed: completedModules.length,
+    };
+  });
+
+  const atRiskEmployees = employeeCompliance
+    .filter((ec) => ec.total > 0 && ec.percent < 100)
+    .sort((a, b) => a.percent - b.percent);
 
   return (
     <div className="p-6 space-y-6">
@@ -289,7 +374,10 @@ export default function HRCompliancePage() {
                 </select>
 
                 <button
-                  onClick={() => handleAssign(module.id)}
+                  onClick={() => {
+                    console.log('🔥 BUTTON CLICKED');
+                    handleAssign(module.id);
+                  }}
                   className="bg-[#00ACC1] text-white px-3 py-1 rounded text-xs"
                 >
                   Confirm Assign
@@ -298,6 +386,78 @@ export default function HRCompliancePage() {
             )}
           </div>
         ))}
+      </div>
+
+      <div className="space-y-3">
+        <h2 className="text-lg font-medium">Tracking</h2>
+        <p className="text-sm text-gray-600">
+          Compliance Rate: {complianceRate}%
+        </p>
+
+        <div className="mt-4 space-y-2">
+          <h3 className="text-sm font-medium text-gray-700">
+            Employee Compliance
+          </h3>
+
+          {employeeCompliance.map((ec) => (
+            <div
+              key={ec.employee.id}
+              className="p-3 border rounded-lg bg-white flex justify-between items-center"
+            >
+              <div>
+                <p className="text-sm font-medium">{ec.employee.name}</p>
+                <p className="text-xs text-gray-500">
+                  {ec.completed}/{ec.total} modules
+                </p>
+              </div>
+
+              <span
+                className={`text-xs px-2 py-1 rounded ${
+                  ec.total === 0
+                    ? 'bg-gray-100 text-gray-500'
+                    : ec.percent === 100
+                      ? 'bg-green-100 text-green-700'
+                      : ec.percent > 0
+                        ? 'bg-yellow-100 text-yellow-700'
+                        : 'bg-red-100 text-red-700'
+                }`}
+              >
+                {ec.total === 0 ? 'N/A' : `${ec.percent}%`}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-6 space-y-2">
+          <h3 className="text-sm font-medium text-red-600">
+            At Risk Employees
+          </h3>
+
+          {atRiskEmployees.length === 0 ? (
+            <p className="text-xs text-gray-500">
+              All employees are compliant 
+            </p>
+          ) : (
+            atRiskEmployees.map((ec) => (
+              <div
+                key={ec.employee.id}
+                className="p-3 border rounded-lg bg-red-50 flex justify-between items-center"
+              >
+                <div>
+                  <p className="text-sm font-medium">{ec.employee.name}</p>
+                  <p className="text-xs text-gray-500">
+                    {ec.completed}/{ec.total} modules
+                  </p>
+                </div>
+
+                <span className="text-xs px-2 py-1 rounded bg-red-100 text-red-700">
+                  {ec.percent}%
+                </span>
+              </div>
+            ))
+          )}
+        </div>
+
       </div>
 
       {/* ================= CORE CARDS ================= */}

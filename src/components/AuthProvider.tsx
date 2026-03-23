@@ -23,6 +23,7 @@ type Plan = 'Trial' | 'Platinum';
 
 type AuthContextType = {
   user: any | null;
+  companyId: string | null;
   role: Role | null;
   plan: Plan | null;
   trialEndsAt: Date | null;
@@ -37,6 +38,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const [state, setState] = useState<AuthContextType>({
     user: null,
+    companyId: null,
     role: null,
     plan: null,
     trialEndsAt: null,
@@ -55,17 +57,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email: firebaseUser?.email ?? null,
       });
 
-      console.log('[AuthProvider] auth resolved', {
-        uid: firebaseUser?.uid ?? null,
-      });
-
-      console.log('[AuthProvider] auth resolved', {
-        uid: firebaseUser?.uid ?? null,
-      });
-
       if (!firebaseUser) {
         setState({
           user: null,
+          companyId: null,
           role: null,
           plan: null,
           trialEndsAt: null,
@@ -75,14 +70,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      // --------------------------------------------------
-      // USER EXISTS → FETCH PROFILE
-      // --------------------------------------------------
       const snap = await getDoc(doc(db, 'users', firebaseUser.uid));
 
       if (!snap.exists()) {
         setState({
           user: firebaseUser,
+          companyId: null,
           role: 'employee',
           plan: null,
           trialEndsAt: null,
@@ -93,15 +86,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const userData = snap.data();
-
       const role = userData.role ?? 'employee';
       const companyId = userData.companyId ?? null;
 
-      // employeeId now comes directly from the user document
-      let employeeId = userData.employeeId ?? null;
+      let employeeId: string | null = null;
 
-      // AUTO-LINK EMPLOYEE IF MISSING
-      if (!employeeId && companyId && firebaseUser.email) {
+      if (companyId && firebaseUser.email) {
         const employeesSnap = await getDocs(
           collection(db, 'companies', companyId, 'employees'),
         );
@@ -109,13 +99,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         employeesSnap.forEach((docSnap) => {
           const data = docSnap.data();
 
-          if (data.email === firebaseUser.email) {
+          if (data.uid === firebaseUser.uid) {
             employeeId = docSnap.id;
           }
         });
 
-        // Save link to user document
-        if (employeeId) {
+        // Always sync back (fix stale data forever)
+        if (employeeId && userData.employeeId !== employeeId) {
           await setDoc(
             doc(db, 'users', firebaseUser.uid),
             { employeeId },
@@ -136,31 +126,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
           if (company.plan === 'Trial' || company.plan === 'Platinum') {
             plan = company.plan;
-          } else {
-            plan = null;
           }
 
           if (company.trialEndsAt) {
-            try {
-              const ts =
-                company.trialEndsAt instanceof Timestamp
-                  ? company.trialEndsAt
-                  : Timestamp.fromMillis(
-                      company.trialEndsAt.seconds
-                        ? company.trialEndsAt.seconds * 1000
-                        : new Date(company.trialEndsAt).getTime(),
-                    );
+            const ts =
+              company.trialEndsAt instanceof Timestamp
+                ? company.trialEndsAt
+                : Timestamp.fromMillis(new Date(company.trialEndsAt).getTime());
 
-              trialEndsAt = ts.toDate();
+            trialEndsAt = ts.toDate();
 
-              const diff = trialEndsAt.getTime() - Date.now();
-              trialDaysLeft = Math.max(
-                0,
-                Math.ceil(diff / (1000 * 60 * 60 * 24)),
-              );
-            } catch (e) {
-              console.warn('Failed to parse company trialEndsAt', e);
-            }
+            const diff = trialEndsAt.getTime() - Date.now();
+            trialDaysLeft = Math.max(
+              0,
+              Math.ceil(diff / (1000 * 60 * 60 * 24)),
+            );
           }
         }
       }
@@ -169,16 +149,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user: {
           uid: firebaseUser.uid,
           email: firebaseUser.email,
-          employeeId,
           ...userData,
+          employeeId, 
         },
+        companyId,
         role,
         plan,
         trialEndsAt,
         trialDaysLeft,
         loading: false,
       });
-    }); //  CLOSE onAuthStateChanged
+    });
 
     return () => unsub();
   }, []);

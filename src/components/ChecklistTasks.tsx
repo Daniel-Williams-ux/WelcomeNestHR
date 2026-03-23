@@ -29,7 +29,10 @@ export const ChecklistTasks = ({ steps, onToggle }: Props) => {
           <motion.div
             key={step.id}
             className="flex items-center gap-3 text-sm sm:text-base font-medium cursor-pointer px-2 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-teal-500"
-            onClick={() => onToggle(step.id, step.completed)}
+            onClick={() => {
+              console.log('CLICK FIRED', step.id, step.completed);
+              onToggle(step.id, step.completed);
+            }}
             onKeyDown={(e) => handleKey(e, step)}
             role="checkbox"
             aria-checked={step.completed}
@@ -46,8 +49,8 @@ export const ChecklistTasks = ({ steps, onToggle }: Props) => {
             <span
               className={`truncate ${
                 step.completed
-                  ? "line-through text-gray-500 dark:text-gray-400"
-                  : "text-gray-700 dark:text-gray-200"
+                  ? 'line-through text-gray-500 dark:text-gray-400'
+                  : 'text-gray-700 dark:text-gray-200'
               }`}
             >
               {step.title}

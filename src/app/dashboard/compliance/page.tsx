@@ -3,9 +3,16 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { ShieldCheck } from 'lucide-react';
-import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
+import {
+  collection,
+  getDocs,
+  doc,
+  getDoc,
+  updateDoc,
+} from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useUserAccess } from '@/hooks/useUserAccess';
+import { query, where } from 'firebase/firestore';
 
 interface ComplianceModule {
   id: string;
@@ -26,28 +33,42 @@ export default function CompliancePage() {
 
    const init = async () => {
      try {
-       // 🔥 ALWAYS fetch fresh user doc
+       //  ALWAYS fetch fresh user doc
        const userRef = doc(db, 'users', user.uid);
        const userSnap = await getDoc(userRef);
 
-       if (!userSnap.exists()) {
-         setModules([]);
-         setLoading(false);
-         return;
-       }
 
        const data = userSnap.data();
 
        const companyId = data.companyId;
-       const employeeId = data.employeeId;
+      if (!companyId) {
+        setModules([]);
+        setLoading(false);
+        return;
+      }
 
-       console.log('employeeId from userDoc:', employeeId);
+      //  get employeeId from employees collection (CORRECT SOURCE)
+      const empQuery = query(
+        collection(db, 'companies', companyId, 'employees'),
+        where('uid', '==', user.uid),
+      );
 
-       if (!companyId || !employeeId) {
-         setModules([]);
-         setLoading(false);
-         return;
+       const empSnap = await getDocs(empQuery);
+       
+       if (empSnap.empty) {
+         console.log('⏳ employee not ready yet, retrying...');
+         return; // ❗ REMOVE setLoading(false)
        }
+
+      if (empSnap.empty) {
+        setModules([]);
+        setLoading(false);
+        return;
+      }
+
+      const employeeId = empSnap.docs[0].id;
+
+      console.log('employeeId resolved:', employeeId);
 
        // =========================
        // FETCH ASSIGNMENTS
@@ -99,10 +120,26 @@ export default function CompliancePage() {
        // =========================
        // MERGE
        // =========================
-       const assignedModules = myAssignments.map((a: any) => ({
-         ...moduleMap[a.moduleId],
-         status: a.status || 'pending',
-       }));
+       const seen = new Set();
+
+       const assignedModules = myAssignments
+         .filter((a: any) => {
+           if (seen.has(a.moduleId)) return false;
+           seen.add(a.moduleId);
+           return true;
+         })
+         .map((a: any) => {
+           const moduleItem = moduleMap[a.moduleId];
+
+           if (!moduleItem) return null;
+
+           return {
+             ...moduleItem,
+             status: a.status || 'pending',
+             assignmentId: a.id,
+           };
+         })
+         .filter(Boolean);
 
        setModules(assignedModules);
      } catch (err) {
@@ -114,6 +151,36 @@ export default function CompliancePage() {
 
    init();
  }, [user?.uid]);
+  
+  const markAsCompleted = async (assignmentId: string) => {
+    if (!user?.uid) return;
+
+    try {
+      const userRef = doc(db, 'users', user.uid);
+      const userSnap = await getDoc(userRef);
+
+      const companyId = userSnap.data()?.companyId;
+      if (!companyId) return;
+
+      await updateDoc(
+        doc(db, 'companies', companyId, 'complianceAssignments', assignmentId),
+        {
+          status: 'completed',
+        },
+      );
+
+      // 🔄 refresh
+      setModules((prev) =>
+        prev.map((m: any) =>
+          m.assignmentId === assignmentId ? { ...m, status: 'completed' } : m,
+        ),
+      );
+    } catch (err) {
+      console.error('Mark complete error:', err);
+    }
+  };
+  
+  
   // =========================
   // LOADING STATE
   // =========================
@@ -151,7 +218,7 @@ export default function CompliancePage() {
 
             return (
               <li
-                key={m.id}
+                key={`${m.id}-${m.status}`}
                 className="p-4 rounded-lg bg-[#F9FAFB] dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:shadow-md transition"
               >
                 <div className="flex items-center justify-between">
@@ -176,6 +243,14 @@ export default function CompliancePage() {
                     >
                       {status.replace('_', ' ')}
                     </span>
+                    {status === 'pending' && (
+                      <button
+                        onClick={() => markAsCompleted(m.assignmentId)}
+                        className="text-xs px-2 py-1 rounded bg-[#00ACC1] text-white hover:opacity-90"
+                      >
+                        Mark Complete
+                      </button>
+                    )}
                   </div>
                 </div>
               </li>

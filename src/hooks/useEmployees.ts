@@ -376,8 +376,13 @@ export function useEmployees(companyId?: string, pageSize = 10) {
       }
       const ref = collection(db, 'companies', companyId!, 'employees');
 
+      // TEMP: skip user lookup to unblock flow
+      const userId = null;
+
       const payload = {
         ...data,
+        // userId,
+        userId: userId || null,//  CRITICAL FIX
         endDate: data.status === 'Exited' ? new Date().toISOString() : null,
         createdAt: serverTimestamp(),
         deletedAt: null,
@@ -385,6 +390,39 @@ export function useEmployees(companyId?: string, pageSize = 10) {
 
       try {
         const added = await addDoc(ref, payload);
+
+        await updateDoc(
+          doc(db, 'companies', companyId!, 'employees', added.id),
+          {
+            employeeId: added.id,
+          },
+        );
+
+        //  AUTO ASSIGN COMPLIANCE MODULES
+        try {
+          const modulesSnap = await getDocs(
+            collection(db, 'companies', companyId!, 'complianceModules'),
+          );
+
+          const employeeId = added.id;
+
+          for (const moduleDoc of modulesSnap.docs) {
+
+            await addDoc(
+              collection(db, 'companies', companyId!, 'complianceAssignments'),
+              {
+                moduleId: moduleDoc.id,
+                employeeId,
+                status: 'pending',
+                createdAt: serverTimestamp(),
+              },
+            );
+          }
+
+          console.log(' Compliance auto-assigned');
+        } catch (err) {
+          console.error('❌ Compliance assignment failed:', err);
+        }
 
         // increment employeeCount on company doc if exists
         try {
@@ -405,7 +443,7 @@ export function useEmployees(companyId?: string, pageSize = 10) {
         throw err;
       }
     },
-    [companyId, fetchCount, loadPage, isValidCompany]
+    [companyId, fetchCount, loadPage, isValidCompany],
   );
 
   // -------------------------

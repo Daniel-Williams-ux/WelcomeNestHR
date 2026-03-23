@@ -1,7 +1,14 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import {
+  doc,
+  getDoc,
+  serverTimestamp,
+  updateDoc,
+  onSnapshot,
+} from 'firebase/firestore';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useUserAccess } from '@/hooks/useUserAccess';
 
@@ -15,117 +22,122 @@ export type EmployeeOnboardingStep = {
 
 export function useEmployeeOnboarding(flowId: string) {
   const { user } = useUserAccess();
-  // const companyId = user?.companyId;
   const companyId = '744J9dEfPKRZObDwEkv2';
 
   const [steps, setSteps] = useState<EmployeeOnboardingStep[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user?.employeeId || !companyId || !flowId) {
+    const employeeId = user?.employeeId;
+    if (!employeeId || !companyId || !flowId) {
       setLoading(false);
       return;
     }
 
-    async function load() {
-      const flowRef = doc(
-        db,
-        'companies',
-        companyId,
-        'employees',
-        user.employeeId,
-        'onboardingFlows',
-        flowId,
-      );
+    const flowRef = doc(
+      db,
+      'companies',
+      companyId,
+      'employees',
+      employeeId,
+      'onboardingFlows',
+      flowId,
+    );
 
-      const flowSnap = await getDoc(flowRef);
-
-      if (!flowSnap.exists()) {
+    const unsubscribe = onSnapshot(flowRef, (snap) => {
+      if (!snap.exists()) {
         setSteps([]);
         setLoading(false);
         return;
       }
 
-      const flowData = flowSnap.data() as any;
-      const milestones = flowData.milestones ?? [];
+      const flowData = snap.data() as any;
 
-      const tasks = milestones.flatMap((m: any) =>
-        (m.tasks ?? []).map((t: any) => ({
-          id: t.id,
-          title: t.title,
-          description: t.description ?? undefined,
-          order: m.order ?? 0,
-          completed: t.completed === true,
-        })),
-      );
-
-      setSteps(tasks);
-      setLoading(false);
-    }
-
-    load();
-  }, [user?.employeeId, companyId, flowId]);
-
-  const toggleStepComplete = useCallback(
-    async (stepId: string, completed: boolean) => {
-      if (!user?.employeeId || !companyId || !flowId) return;
-
-      const newCompleted = !completed;
-
-      const flowRef = doc(
-        db,
-        'companies',
-        companyId,
-        'employees',
-        user.employeeId,
-        'onboardingFlows',
-        flowId,
-      );
-
-      const flowSnap = await getDoc(flowRef);
-      if (!flowSnap.exists()) return;
-
-      const flowData = flowSnap.data() as any;
-      const milestones = flowData.milestones ?? [];
-
-      const updatedMilestones = milestones.map((m: any) => ({
-        ...m,
-        tasks: (m.tasks ?? []).map((t: any) =>
-          t.id === stepId ? { ...t, completed: newCompleted } : t,
-        ),
-      }));
-
-      await setDoc(
-        flowRef,
-        {
-          milestones: updatedMilestones,
-          updatedAt: serverTimestamp(),
-        },
-        { merge: true },
-      );
-
-      // reload from Firestore so HR dashboard sees update
-      const updatedFlowSnap = await getDoc(flowRef);
-
-      if (updatedFlowSnap.exists()) {
-        const flowData = updatedFlowSnap.data() as any;
-        const milestones = flowData.milestones ?? [];
-
-        const tasks = milestones.flatMap((m: any) =>
+      const tasks = (flowData.milestones ?? [])
+        .sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0))
+        .flatMap((m: any) =>
           (m.tasks ?? []).map((t: any) => ({
             id: t.id,
             title: t.title,
             description: t.description ?? undefined,
             order: m.order ?? 0,
-            completed: t.completed === true,
+            completed: Boolean(t.completed), // 🔥 important
           })),
         );
 
-        setSteps(tasks);
-      }
-    },
-    [user?.employeeId, companyId, flowId],
-  );
+      setSteps(tasks);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [user?.employeeId, companyId, flowId]);
+
+ const toggleStepComplete = useCallback(
+   async (stepId: string, completed: boolean) => {
+     if (!user?.uid || !companyId || !flowId) return;
+
+     const newCompleted = !completed;
+
+     const empQuery = query(
+       collection(db, 'companies', companyId, 'employees'),
+       where('uid', '==', user.uid),
+     );
+
+     const empSnap = await getDocs(empQuery);
+     if (empSnap.empty) return;
+
+     const employeeId = empSnap.docs[0].id;
+
+     const flowRef = doc(
+       db,
+       'companies',
+       companyId,
+       'employees',
+       employeeId,
+       'onboardingFlows',
+       flowId,
+     );
+
+     const flowSnap = await getDoc(flowRef);
+     if (!flowSnap.exists()) return;
+
+     const flowData = flowSnap.data() as any;
+
+     const updatedMilestones = (flowData.milestones ?? []).map((m: any) => {
+       const hasTask = (m.tasks ?? []).some((t: any) => t.id === stepId);
+
+       if (!hasTask) return m; //  DO NOT TOUCH other milestones
+
+       return {
+         ...m,
+         tasks: (m.tasks ?? []).map((t: any) =>
+           t.id === stepId ? { ...t, completed: newCompleted } : t,
+         ),
+       };
+     });
+
+     await updateDoc(flowRef, {
+       milestones: updatedMilestones,
+       updatedAt: serverTimestamp(),
+     });
+
+     console.log('UPDATED IN FIRESTORE');
+
+     // ✅ UI update
+     const tasks = updatedMilestones.flatMap((m: any) =>
+       (m.tasks ?? []).map((t: any) => ({
+         id: t.id,
+         title: t.title,
+         description: t.description ?? undefined,
+         order: m.order ?? 0,
+         completed: t.completed === true,
+       })),
+     );
+
+     setSteps(tasks);
+   },
+   [user?.uid, companyId, flowId],
+ );
 
   return {
     steps,
