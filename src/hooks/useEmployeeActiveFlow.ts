@@ -50,13 +50,10 @@ export function useEmployeeActiveFlow() {
           where('uid', '==', user.uid),
         );
 
+
         const empSnap = await getDocs(empQuery);
 
-        if (empSnap.empty) {
-          console.log('❌ Employee not found');
-          setLoading(false);
-          return;
-        }
+        if (empSnap.empty) return;
 
         const employeeDoc = empSnap.docs[0];
         const employeeId = employeeDoc.id;

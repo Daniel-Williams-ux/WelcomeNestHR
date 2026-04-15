@@ -21,6 +21,13 @@ import {
 } from 'firebase/firestore';
 import { EyeIcon, EyeOffIcon } from 'lucide-react';
 import Image from 'next/image';
+import { useEffect } from 'react';
+import { query, where } from 'firebase/firestore';
+import { updateDoc } from 'firebase/firestore';
+import { setLogLevel } from 'firebase/firestore';
+import { collectionGroup } from 'firebase/firestore';
+
+setLogLevel('debug');
 
 /** Wait until Firebase Auth is fully ready */
 async function waitForAuthReady(): Promise<void> {
@@ -70,12 +77,79 @@ export default function SignupPage() {
   const searchParams = useSearchParams();
 
   /** --- INVITE PARAMETERS --- */
-  const companyId = searchParams.get('companyId') || null;
-  const inviteRole = searchParams.get('role') || 'employee'; // <— FIXED!
+  const token = searchParams.get('token');
+
+  const [companyId, setCompanyId] = useState<string | null>(null);
+  const [inviteRole, setInviteRole] = useState<string | null>(null);
+  const [loadingInvite, setLoadingInvite] = useState(true);
+  const [inviteDocRef, setInviteDocRef] = useState<any>(null);
+
+  useEffect(() => {
+    const resolveInvite = async () => {
+      try {
+        console.log('🔍 Token from URL:', token);
+
+        if (!token) {
+          setLoadingInvite(false);
+          return;
+        }
+
+        //  DIRECT query (SSOT-compliant)
+        const inviteQuery = query(
+          collectionGroup(db, 'invitations'),
+          where('token', '==', token),
+        );
+
+        const inviteSnap = await getDocs(inviteQuery);
+
+        if (inviteSnap.empty) {
+          setFirebaseError('Invalid invitation link');
+          setLoadingInvite(false);
+          return;
+        }
+
+        const inviteDoc = inviteSnap.docs[0];
+        const foundInvite = inviteDoc.data();
+        const foundInviteRef = inviteDoc.ref;
+
+        // VERY IMPORTANT: extract companyId from path
+        const foundCompanyId = inviteDoc.ref.parent.parent?.id;
+
+        //  set values (same as before)
+        setInviteDocRef(foundInviteRef);
+        setInviteEmployeeId(foundInvite.employeeId || null);
+
+        const now = Date.now();
+        const expiresAt =
+          foundInvite.expiresAt?.toMillis?.() ??
+          new Date(foundInvite.expiresAt).getTime();
+
+        if (foundInvite.status !== 'pending' || now > expiresAt) {
+          setFirebaseError('Invitation expired or already used');
+          setLoadingInvite(false);
+          return;
+        }
+
+        setCompanyId(foundCompanyId);
+        setInviteRole(foundInvite.role);
+        setLoadingInvite(false);
+
+        
+      } catch (err) {
+        console.error('❌ Invite resolution error:', err);
+        setFirebaseError('Something went wrong');
+        setLoadingInvite(false);
+      }
+    };
+
+    resolveInvite();
+  }, [token]);
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [firebaseError, setFirebaseError] = useState('');
+  const [inviteEmployeeId, setInviteEmployeeId] = useState<string | null>(null);
+  
 
   const togglePasswordVisibility = () => setShowPassword((p) => !p);
   const toggleConfirmPasswordVisibility = () =>
@@ -166,6 +240,7 @@ export default function SignupPage() {
         }
       }
 
+      await new Promise((res) => setTimeout(res, 500));
       router.push('/route-router');
     } catch (err) {
       console.error(err);
@@ -192,6 +267,10 @@ export default function SignupPage() {
       'Please accept terms and privacy policy'
     ),
   });
+
+  if (loadingInvite) {
+    return <div className="p-6 text-center">Validating invitation...</div>;
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#e0f7fa] to-[#f4f9fb] dark:from-[#0c1b1f] dark:to-[#1c2b2f] px-4">
@@ -221,6 +300,7 @@ export default function SignupPage() {
           onSubmit={async (values, { setSubmitting }) => {
             setFirebaseError('');
 
+            // 🔗 LINK EMPLOYEE TO USER (CRITICAL)
             if (!companyId) {
               setFirebaseError('You must use your company invitation link.');
               setSubmitting(false);
@@ -244,10 +324,11 @@ export default function SignupPage() {
               await updateProfile(user, { displayName: values.fullName });
               await waitForAuthReady();
 
-              await setDoc(
-                doc(db, 'users', user.uid),
-                getDefaultUserData(user, values.fullName),
-              );
+
+              const userRef = doc(db, 'users', user.uid);
+              await setDoc(userRef, getDefaultUserData(user, values.fullName), {
+                merge: true,
+              });
 
               await setDoc(doc(db, 'customers', user.uid), {
                 email: user.email,
@@ -259,11 +340,41 @@ export default function SignupPage() {
 
               await cloneOnboardingTemplate(user.uid);
 
+              //  LINK EMPLOYEE (SSOT: use invite.employeeId)
+              if (companyId && inviteRole === 'employee' && inviteEmployeeId) {
+                await setDoc(
+                  doc(
+                    db,
+                    'companies',
+                    companyId,
+                    'employees',
+                    inviteEmployeeId,
+                  ),
+                  {
+                    uid: user.uid,
+                    updatedAt: serverTimestamp(),
+                  },
+                  { merge: true },
+                );
+              }
+
+              //  ALWAYS MARK INVITE AS USED
+              if (inviteDocRef) {
+                await updateDoc(inviteDocRef, {
+                  status: 'accepted',
+                  acceptedAt: serverTimestamp(),
+                }).catch((err) => {
+                  console.error('❌ Invite update failed:', err);
+                  throw err;
+                });
+              }
+              //  THEN REDIRECT
+              await new Promise((res) => setTimeout(res, 500));
               router.push('/route-router');
             } catch (err) {
               console.error(err);
               setFirebaseError(
-                'Account creation failed. Try a different email.'
+                'Account creation failed. Try a different email.',
               );
             }
 

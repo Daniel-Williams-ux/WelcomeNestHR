@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion';
 import { Coffee, Mail } from 'lucide-react';
 import { useCollaborate } from '@/hooks/useCollaborate';
+import { useRouter } from 'next/navigation';
 
 export default function BuddyCard({
   companyId,
@@ -12,6 +13,7 @@ export default function BuddyCard({
   employeeId: string;
 }) {
   const { buddy, loading } = useCollaborate(companyId, employeeId);
+  const router = useRouter();
 
   if (loading) {
     return (
@@ -42,8 +44,10 @@ export default function BuddyCard({
         </div>
 
         <div>
-          <p className="text-sm font-medium">Buddy Assigned</p>
-          <p className="text-xs text-gray-500">ID: {buddy.buddyId}</p>
+          <p className="text-sm font-medium">{buddy.name}</p>
+          <p className="text-xs text-gray-500">
+            {buddy.title || 'Team Member'}
+          </p>
         </div>
       </div>
 
@@ -52,12 +56,12 @@ export default function BuddyCard({
           <Coffee className="h-4 w-4" /> Coffee Chat
         </button>
 
-        <a
-          href="#"
+        <button
+          onClick={() => router.push(`/dashboard/messages/${buddy.uid}`)}
           className="flex items-center gap-1 px-3 py-2 rounded-lg bg-[#FB8C00]/10 text-[#FB8C00] text-sm"
         >
           <Mail className="h-4 w-4" /> Message
-        </a>
+        </button>
       </div>
     </motion.section>
   );

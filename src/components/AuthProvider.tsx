@@ -70,18 +70,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const snap = await getDoc(doc(db, 'users', firebaseUser.uid));
+      let snap;
+      let retries = 0;
 
-      if (!snap.exists()) {
+      while (retries < 5) {
+        snap = await getDoc(doc(db, 'users', firebaseUser.uid));
+
+        if (snap.exists()) break;
+
+        await new Promise((res) => setTimeout(res, 300));
+        retries++;
+      }
+
+      if (!snap || !snap.exists()) {
+        console.error('User doc not found after retries');
+
         setState({
           user: firebaseUser,
           companyId: null,
-          role: 'employee',
+          role: null,
           plan: null,
           trialEndsAt: null,
           trialDaysLeft: null,
           loading: false,
         });
+
         return;
       }
 

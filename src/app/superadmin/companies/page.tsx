@@ -16,7 +16,9 @@ import EditCompanyModal from '@/components/superadmin/EditCompanyModal';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/components/ui/use-toast';
 import { ArrowUpDown } from 'lucide-react';
-import { useRouter } from 'next/navigation'; //  Added
+import { useRouter } from 'next/navigation';
+import { addDoc, serverTimestamp } from 'firebase/firestore';
+import { v4 as uuidv4 } from 'uuid';
 
 interface Company {
   id: string;
@@ -44,9 +46,9 @@ export default function CompaniesPage() {
     direction: 'asc' | 'desc';
   } | null>(null);
 
-  const router = useRouter(); // ✅ Added
+  const router = useRouter(); //
 
-  // ✅ Firestore real-time listener
+  //  Firestore real-time listener
   useEffect(() => {
     const q = query(collection(db, 'companies'), orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(
@@ -101,6 +103,32 @@ export default function CompaniesPage() {
     } catch (err) {
       console.error('Error deleting company:', err);
       toast({ title: 'Error deleting company' });
+    }
+  };
+
+  const handleInviteHR = async (companyId: string) => {
+    const email = prompt('Enter HR email');
+
+    if (!email) return;
+
+    try {
+      const token = uuidv4();
+
+      await addDoc(collection(db, `companies/${companyId}/invitations`), {
+        email,
+        role: 'hr',
+        token,
+        status: 'pending',
+        createdAt: serverTimestamp(),
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      });
+
+      const link = `http://localhost:3000/signup?token=${token}`;
+
+      console.log('HR Invite Link:', link);
+      alert(`Invite link:\n${link}`);
+    } catch (err) {
+      console.error('Error inviting HR:', err);
     }
   };
 
@@ -169,8 +197,8 @@ export default function CompaniesPage() {
                        company.status === 'active'
                          ? 'bg-green-100 text-green-700'
                          : company.status === 'suspended'
-                         ? 'bg-yellow-100 text-yellow-700'
-                         : 'bg-gray-100 text-gray-700'
+                           ? 'bg-yellow-100 text-yellow-700'
+                           : 'bg-gray-100 text-gray-700'
                      }`}
                    >
                      {company.status || '—'}
@@ -180,7 +208,7 @@ export default function CompaniesPage() {
                  <div className="text-xs text-gray-500">
                    {company.createdAt?.seconds
                      ? new Date(
-                         company.createdAt.seconds * 1000
+                         company.createdAt.seconds * 1000,
                        ).toLocaleDateString()
                      : '—'}
                  </div>
@@ -254,7 +282,7 @@ export default function CompaniesPage() {
                    <td
                      onClick={() =>
                        router.push(
-                         `/superadmin/company/${company.id}/employees`
+                         `/superadmin/company/${company.id}/employees`,
                        )
                      }
                      className="py-3 px-4 font-medium text-[#00ACC1] hover:underline cursor-pointer"
@@ -272,8 +300,8 @@ export default function CompaniesPage() {
                          company.status === 'active'
                            ? 'bg-green-100 text-green-700'
                            : company.status === 'suspended'
-                           ? 'bg-yellow-100 text-yellow-700'
-                           : 'bg-gray-100 text-gray-700'
+                             ? 'bg-yellow-100 text-yellow-700'
+                             : 'bg-gray-100 text-gray-700'
                        }`}
                      >
                        {company.status || '—'}
@@ -283,7 +311,7 @@ export default function CompaniesPage() {
                    <td className="py-3 px-4 text-sm text-gray-500">
                      {company.createdAt?.seconds
                        ? new Date(
-                           company.createdAt.seconds * 1000
+                           company.createdAt.seconds * 1000,
                          ).toLocaleDateString()
                        : '—'}
                    </td>
@@ -300,6 +328,13 @@ export default function CompaniesPage() {
                        className="bg-[#00ACC1] hover:bg-[#0097A7] text-white text-xs px-3 py-1"
                      >
                        Edit
+                     </Button>
+
+                     <Button
+                       onClick={() => handleInviteHR(company.id)}
+                       className="bg-purple-600 hover:bg-purple-700 text-white text-xs px-3 py-1"
+                     >
+                       Invite HR
                      </Button>
 
                      <Button

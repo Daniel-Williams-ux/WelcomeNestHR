@@ -18,6 +18,7 @@ import {
   increment,
   getCountFromServer,
 } from 'firebase/firestore';
+import { createEmployee } from '@/lib/employees/createEmployee';
 
 export interface Employee {
   id: string;
@@ -35,6 +36,7 @@ export interface Employee {
 type SortOption = { field: 'createdAt' | 'name'; direction: 'asc' | 'desc' };
 
 export function useEmployees(companyId?: string, pageSize = 10) {
+  console.log('🔥 addEmployee hook CALLED');
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -389,12 +391,16 @@ export function useEmployees(companyId?: string, pageSize = 10) {
       };
 
       try {
-        const added = await addDoc(ref, payload);
+        const addedId = await createEmployee(
+          companyId!,
+          data.name,
+          data.email || '',
+        );
 
         await updateDoc(
-          doc(db, 'companies', companyId!, 'employees', added.id),
+          doc(db, 'companies', companyId!, 'employees', addedId),
           {
-            employeeId: added.id,
+            employeeId: addedId,
           },
         );
 
@@ -404,7 +410,7 @@ export function useEmployees(companyId?: string, pageSize = 10) {
             collection(db, 'companies', companyId!, 'complianceModules'),
           );
 
-          const employeeId = added.id;
+          const employeeId = addedId;
 
           for (const moduleDoc of modulesSnap.docs) {
 
@@ -437,7 +443,7 @@ export function useEmployees(companyId?: string, pageSize = 10) {
         // refresh counts and first page
         fetchCount().finally(() => loadPage(1));
 
-        return added.id;
+        return addedId;
       } catch (err) {
         console.error('addEmployee error', err);
         throw err;

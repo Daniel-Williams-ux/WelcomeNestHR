@@ -10,7 +10,12 @@ import {
 type CollaborateState = {
   buddy: any | null;
   announcements: any[];
-  employees: any[];
+  employees: {
+    id?: string;
+    uid?: string;
+    employeeId?: string;
+    name?: string;
+  }[];
   loading: boolean;
 };
 
@@ -27,14 +32,23 @@ export function useCollaborate(companyId: string, employeeId: string) {
       setState((prev) => ({ ...prev, loading: true }));
 
       //  Parallel fetch (important for performance)
-      const [buddy, announcementRes, employees] = await Promise.all([
+      const [buddyRef, announcementRes, employees] = await Promise.all([
         getEmployeeBuddy(companyId, employeeId),
         getAnnouncements(companyId),
         getEmployeesForOrg(companyId),
       ]);
 
+      //  Resolve buddyId → actual employee
+      let resolvedBuddy = null;
+
+      const buddyId = (buddyRef as any)?.buddyId;
+
+      if (buddyId) {
+       resolvedBuddy = employees.find((emp) => emp.uid === buddyId);
+      }
+
       setState({
-        buddy,
+        buddy: resolvedBuddy,
         announcements: announcementRes.announcements,
         employees,
         loading: false,

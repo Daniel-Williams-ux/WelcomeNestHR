@@ -13,7 +13,7 @@ import {
 import { auth, db } from "@/lib/firebase";
 import { FirebaseError } from "firebase/app";
 import { doc, getDoc } from "firebase/firestore";
-import { handleNewUser } from "@/lib/handleNewUser";
+
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -22,14 +22,15 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const router = useRouter();
 
-  // ✅ Runs only on first login
+  //  Runs only on first login
   const checkAndSeedUser = async (uid: string) => {
-    const userDocRef = doc(db, "users", uid);
+    const userDocRef = doc(db, 'users', uid);
     const userDocSnap = await getDoc(userDocRef);
 
     if (!userDocSnap.exists()) {
-      console.log("🆕 First-time login detected — creating trial data...");
-      await handleNewUser(uid);
+      throw new Error(
+        'Account not found. Please sign up using your invitation link.',
+      );
     }
   };
 
