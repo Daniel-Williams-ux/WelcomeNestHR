@@ -123,7 +123,8 @@ export default function CompaniesPage() {
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       });
 
-      const link = `http://localhost:3000/signup?token=${token}`;
+      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || window.location.origin;
+      const link = `${baseUrl}/signup?token=${token}`;
 
       console.log('HR Invite Link:', link);
       alert(`Invite link:\n${link}`);

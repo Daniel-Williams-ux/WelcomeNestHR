@@ -26,7 +26,7 @@ const HeroSection = () => {
           {/* Logo */}
           <div className="mb-6 flex justify-center lg:justify-start">
             <Image
-              src="/welcomenesthr.webp"
+              src="/welcomenesthr.png"
               alt="WelcomeNestHR Logo"
               width={220}
               height={80}
@@ -86,7 +86,7 @@ const HeroSection = () => {
           className="flex-1 w-full max-w-2xl"
         >
           <Image
-            src="/illustrations/welcomenesthr.webp"
+            src="/illustrations/welcome.webp"
             alt="Illustration showing WelcomeNestHR platform"
             width={1000}
             height={720}
