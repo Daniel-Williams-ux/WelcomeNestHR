@@ -102,13 +102,14 @@ export default function AIAssistantPanel({
       transition={{ type: "spring", stiffness: 100, damping: 20 }}
       className="fixed top-0 right-0 h-full w-full sm:w-96 bg-white dark:bg-gray-900 shadow-2xl z-50 flex flex-col border-l border-gray-200 dark:border-gray-700"
       role="dialog"
+      aria-modal="true"
       aria-label="AI Assistant chat panel"
     >
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-[#FFB300] to-[#FB8C00] text-white">
         <h2 className="text-lg font-semibold">AI Assistant</h2>
-        <button aria-label="Close assistant" onClick={onClose}>
-          <X className="w-5 h-5" />
+        <button type="button" aria-label="Close assistant" onClick={onClose}>
+          <X className="w-5 h-5" aria-hidden="true" />
         </button>
       </div>
 
@@ -149,7 +150,7 @@ export default function AIAssistantPanel({
           disabled={loading}
           aria-label="Send message"
         >
-          <Send className="w-4 h-4" />
+          <Send className="w-4 h-4" aria-hidden="true" />
         </Button>
       </div>
     </motion.div>

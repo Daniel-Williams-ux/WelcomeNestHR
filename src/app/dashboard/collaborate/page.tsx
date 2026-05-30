@@ -9,16 +9,21 @@ import { useUserAccess } from '@/hooks/useUserAccess';
 export default function CollaboratePage() {
   const { user, companyId } = useUserAccess();
 
-  console.log('USER:', user);
-  console.log('companyId:', companyId);
-  console.log('employeeId being passed:', user?.employeeId);
-
-  if (!user || !companyId) return null;
+  if (!user || !companyId) {
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-600 shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
+        Loading your collaboration workspace...
+      </div>
+    );
+  }
 
   return (
     <motion.div className="space-y-8 px-6 py-8">
       <header>
-        <h1 className="text-3xl font-bold">Collaborate 🤝</h1>
+        <h1 className="text-3xl font-bold text-slate-950 dark:text-white">Collaborate</h1>
+        <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+          Connect with your buddy, read announcements, and understand your team.
+        </p>
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

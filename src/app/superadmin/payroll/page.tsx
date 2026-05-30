@@ -2,12 +2,12 @@
 
 import { motion } from 'framer-motion';
 import {
-  Wallet,
   Users,
   Building2,
   ShieldCheck,
   Clock,
   AlertTriangle,
+  type LucideIcon,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 
@@ -130,7 +130,7 @@ function MetricCard({
   title: string;
   value: string;
   description: string;
-  icon: React.ComponentType<{ size?: number }>;
+  icon: LucideIcon;
 }) {
   return (
     <Card>

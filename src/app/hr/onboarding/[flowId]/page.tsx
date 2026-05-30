@@ -48,7 +48,6 @@ async function handleAssign() {
     setAssigning(true);
 
     await assignOnboardingFlowToEmployee(companyId, selectedEmployeeId, flowId);
-    console.log('Assignment successful.');
 
     setSelectedEmployeeId('');
   } catch (err) {
@@ -81,10 +80,7 @@ async function handleAssign() {
             <select
               className="w-full border rounded-md px-3 py-2 text-sm"
               value={selectedEmployeeId}
-              onChange={(e) => {
-                console.log('Changed to:', e.target.value);
-                setSelectedEmployeeId(e.target.value);
-              }}
+              onChange={(e) => setSelectedEmployeeId(e.target.value)}
             >
               <option value="">Select employee</option>
 
@@ -103,10 +99,8 @@ async function handleAssign() {
               {assigning ? 'Assigning...' : 'Assign flow'}
             </button> */}
             <button
-              onClick={() => {
-                console.log('Button clicked');
-                handleAssign();
-              }}
+              type="button"
+              onClick={handleAssign}
               disabled={!selectedEmployeeId || assigning}
               className="px-4 py-2 bg-black text-white rounded-md disabled:opacity-50"
             >

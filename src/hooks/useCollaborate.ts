@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import {
+  type CollaborateEmployee,
   getEmployeeBuddy,
   getAnnouncements,
   getEmployeesForOrg,
@@ -10,12 +11,7 @@ import {
 type CollaborateState = {
   buddy: any | null;
   announcements: any[];
-  employees: {
-    id?: string;
-    uid?: string;
-    employeeId?: string;
-    name?: string;
-  }[];
+  employees: CollaborateEmployee[];
   loading: boolean;
 };
 

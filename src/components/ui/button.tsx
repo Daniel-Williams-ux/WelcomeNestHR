@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'outline' | 'danger' | 'ghost' | 'table';
+  size?: 'sm' | 'md' | 'lg';
 }
 
 const base =
@@ -19,12 +20,18 @@ const variants = {
     'bg-gray-200 text-gray-800 hover:bg-gray-300 px-3 py-1 text-xs rounded',
 };
 
+const sizes = {
+  sm: 'px-3 py-1 text-xs',
+  md: '',
+  lg: 'px-5 py-3 text-base',
+};
+
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ variant = 'primary', className, children, ...props }, ref) => {
+  ({ variant = 'primary', size = 'md', className, children, ...props }, ref) => {
     return (
       <button
         ref={ref}
-        className={cn(base, variants[variant], className)}
+        className={cn(base, variants[variant], sizes[size], className)}
         {...props}
       >
         {children}

@@ -6,15 +6,13 @@ import History from "./components/History";
 
 export default function LifeSyncPage() {
   return (
-    <main className="min-h-screen p-6 bg-gray-50 dark:bg-gray-950 transition-colors">
-      <div className="mx-auto max-w-7xl space-y-6">
+    <div className="mx-auto max-w-7xl space-y-6">
         <header>
           <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100">
-            LifeSync — Wellness & Mood
+            LifeSync Wellness & Mood
           </h1>
           <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-            Track your daily mood and jot quick reflections. (UI-only; we’ll
-            hook this to Firestore next.)
+            Track your daily mood and jot quick reflections.
           </p>
         </header>
 
@@ -27,7 +25,6 @@ export default function LifeSyncPage() {
             <History />
           </div>
         </section>
-      </div>
-    </main>
+    </div>
   );
 }

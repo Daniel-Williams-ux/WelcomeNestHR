@@ -27,6 +27,19 @@ export default function EditCompanyModal({
     if (open) setName(currentName);
   }, [open, currentName]);
 
+  useEffect(() => {
+    if (!open) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !loading) {
+        onClose();
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [loading, onClose, open]);
+
   const handleSave = async () => {
     if (!name.trim()) {
       toast({ title: 'Company name is required' });
@@ -49,18 +62,30 @@ export default function EditCompanyModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl shadow-lg w-full max-w-md p-6 relative">
-        <h2 className="text-xl font-semibold mb-4 text-gray-800">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="edit-company-title"
+    >
+      <div className="relative w-full max-w-md rounded-xl bg-white p-6 shadow-lg dark:bg-gray-900">
+        <h2
+          id="edit-company-title"
+          className="mb-4 text-xl font-semibold text-gray-800 dark:text-gray-100"
+        >
           Edit Company
         </h2>
 
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700">
+            <label
+              htmlFor="company-name"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-200"
+            >
               Company Name
             </label>
             <Input
+              id="company-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Enter new name"
@@ -72,6 +97,7 @@ export default function EditCompanyModal({
         <div className="flex justify-end space-x-2 mt-6">
           <Button
             onClick={onClose}
+            disabled={loading}
             className="bg-gray-200 hover:bg-gray-300 text-gray-700"
           >
             Cancel

@@ -5,9 +5,11 @@ import { useUserPlan } from "@/hooks/useUserPlan";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
-export function withPlanGate<T>(
+type Plan = "free" | "pro" | "enterprise";
+
+export function withPlanGate<T extends object>(
   Component: React.ComponentType<T>,
-  allowedPlans: ("pro" | "enterprise")[]
+  allowedPlans: Plan[]
 ) {
   return function WrappedComponent(props: T) {
     const { plan, loading } = useUserPlan();

@@ -36,7 +36,6 @@ export interface Employee {
 type SortOption = { field: 'createdAt' | 'name'; direction: 'asc' | 'desc' };
 
 export function useEmployees(companyId?: string, pageSize = 10) {
-  console.log('🔥 addEmployee hook CALLED');
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -376,43 +375,48 @@ export function useEmployees(companyId?: string, pageSize = 10) {
       if (!isValidCompany) {
         throw new Error('No company selected.');
       }
-      const ref = collection(db, 'companies', companyId!, 'employees');
-
-      // TEMP: skip user lookup to unblock flow
-      const userId = null;
-
-      const payload = {
-        ...data,
-        // userId,
-        userId: userId || null,//  CRITICAL FIX
-        endDate: data.status === 'Exited' ? new Date().toISOString() : null,
-        createdAt: serverTimestamp(),
-        deletedAt: null,
-      };
 
       try {
-        const addedId = await createEmployee(
+        const { employeeId, token, created } = await createEmployee(
           companyId!,
           data.name,
           data.email || '',
+          'employee',
+          {
+            title: data.title,
+            department: data.department,
+            status: data.status,
+          },
         );
 
+        if (!employeeId) {
+          throw new Error('Employee record was not created.');
+        }
+
         await updateDoc(
-          doc(db, 'companies', companyId!, 'employees', addedId),
+          doc(db, 'companies', companyId!, 'employees', employeeId),
           {
-            employeeId: addedId,
+            employeeId,
           },
         );
 
         //  AUTO ASSIGN COMPLIANCE MODULES
         try {
-          const modulesSnap = await getDocs(
-            collection(db, 'companies', companyId!, 'complianceModules'),
+          const [modulesSnap, existingAssignmentsSnap] = await Promise.all([
+            getDocs(collection(db, 'companies', companyId!, 'complianceModules')),
+            getDocs(
+              query(
+                collection(db, 'companies', companyId!, 'complianceAssignments'),
+                where('employeeId', '==', employeeId),
+              ),
+            ),
+          ]);
+          const assignedModuleIds = new Set(
+            existingAssignmentsSnap.docs.map((assignment) => assignment.data().moduleId),
           );
 
-          const employeeId = addedId;
-
           for (const moduleDoc of modulesSnap.docs) {
+            if (assignedModuleIds.has(moduleDoc.id)) continue;
 
             await addDoc(
               collection(db, 'companies', companyId!, 'complianceAssignments'),
@@ -425,25 +429,26 @@ export function useEmployees(companyId?: string, pageSize = 10) {
             );
           }
 
-          console.log(' Compliance auto-assigned');
         } catch (err) {
-          console.error('❌ Compliance assignment failed:', err);
+          console.error('Compliance assignment failed:', err);
         }
 
         // increment employeeCount on company doc if exists
-        try {
-          await updateDoc(doc(db, 'companies', companyId!), {
-            employeeCount: increment(1),
-          });
-        } catch (err) {
-          // non-fatal: log and continue
-          console.warn('Failed to increment employeeCount', err);
+        if (created) {
+          try {
+            await updateDoc(doc(db, 'companies', companyId!), {
+              employeeCount: increment(1),
+            });
+          } catch (err) {
+            // non-fatal: log and continue
+            console.warn('Failed to increment employeeCount', err);
+          }
         }
 
         // refresh counts and first page
         fetchCount().finally(() => loadPage(1));
 
-        return addedId;
+        return { employeeId, token };
       } catch (err) {
         console.error('addEmployee error', err);
         throw err;

@@ -6,6 +6,28 @@ import { NextRequest, NextResponse } from "next/server";
 
 const db = getFirestore(app);
 
+type BillingUser = {
+  role?: string;
+  companyId?: string;
+  stripeCustomerId?: string;
+};
+
+async function resolveStripeCustomerId(uid: string, userData: BillingUser) {
+  if (userData.role === "hr" && userData.companyId) {
+    const companySnap = await db.collection("companies").doc(userData.companyId).get();
+    const companyCustomerId = companySnap.get("stripeCustomerId");
+
+    if (companyCustomerId) return String(companyCustomerId);
+  }
+
+  if (userData.stripeCustomerId) return userData.stripeCustomerId;
+
+  const customerSnap = await db.collection("customers").doc(uid).get();
+  const customerId = customerSnap.get("stripeCustomerId");
+
+  return customerId ? String(customerId) : null;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const authHeader = req.headers.get("authorization");
@@ -21,7 +43,26 @@ export async function POST(req: NextRequest) {
     const uid = decodedToken.uid;
 
     const userDoc = await db.collection("users").doc(uid).get();
-    const stripeCustomerId = userDoc.get("stripeCustomerId");
+
+    if (!userDoc.exists) {
+      return NextResponse.json(
+        { error: "User not found" },
+        { status: 404 },
+      );
+    }
+
+    const userData = userDoc.data() as BillingUser;
+    const canManageBilling =
+      userData.role === "hr" || userData.role === "superadmin";
+
+    if (!canManageBilling) {
+      return NextResponse.json(
+        { error: "Only HR or superadmin users can manage billing." },
+        { status: 403 },
+      );
+    }
+
+    const stripeCustomerId = await resolveStripeCustomerId(uid, userData);
 
     if (!stripeCustomerId) {
       return NextResponse.json(
@@ -29,6 +70,10 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? req.nextUrl.origin;
+    const returnPath =
+      userData.role === "superadmin" ? "/superadmin/billing" : "/hr/billing";
 
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
@@ -39,8 +84,8 @@ export async function POST(req: NextRequest) {
           quantity: 1,
         },
       ],
-      success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard/billing?success=1`,
-      cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard/billing?canceled=1`,
+      success_url: `${baseUrl}${returnPath}?success=1`,
+      cancel_url: `${baseUrl}${returnPath}?canceled=1`,
     });
 
     return NextResponse.json({ url: session.url });

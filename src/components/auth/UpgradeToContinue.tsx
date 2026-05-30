@@ -1,7 +1,7 @@
 "use client";
 
 type Props = {
-  plan: "free" | "trial" | "platinum" | null;
+  plan: "free" | "trial" | "platinum" | "Trial" | "Platinum" | null;
   trialEndsAt?: Date | null;
   isTrialExpired?: boolean;
   trialDaysLeft?: number | null;
@@ -14,7 +14,9 @@ export default function UpgradeToContinue({
   trialDaysLeft,
 }: Props) {
   const renderPlanLabel = () => {
-    if (plan === "trial") {
+    const normalizedPlan = plan?.toLowerCase();
+
+    if (normalizedPlan === "trial") {
       if (isTrialExpired) return "Trial expired";
       if (typeof trialDaysLeft === "number") {
         return `Trial – ${trialDaysLeft} day${
@@ -22,6 +24,8 @@ export default function UpgradeToContinue({
         } left`;
       }
     }
+    if (normalizedPlan === "platinum") return "Platinum";
+
     return plan ?? "unknown";
   };
 
@@ -34,7 +38,7 @@ export default function UpgradeToContinue({
         Your current plan (<strong>{renderPlanLabel()}</strong>) doesn’t grant
         access to this feature.
       </p>
-      {plan === "trial" && trialEndsAt && !isTrialExpired && (
+      {plan?.toLowerCase() === "trial" && trialEndsAt && !isTrialExpired && (
         <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
           Trial ends on{" "}
           <span className="font-medium">

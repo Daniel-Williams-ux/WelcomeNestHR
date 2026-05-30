@@ -8,7 +8,6 @@ import {
   updateDoc,
   onSnapshot,
 } from 'firebase/firestore';
-import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useUserAccess } from '@/hooks/useUserAccess';
 
@@ -21,8 +20,7 @@ export type EmployeeOnboardingStep = {
 };
 
 export function useEmployeeOnboarding(flowId: string) {
-  const { user } = useUserAccess();
-  const companyId = '744J9dEfPKRZObDwEkv2';
+  const { user, companyId } = useUserAccess();
 
   const [steps, setSteps] = useState<EmployeeOnboardingStep[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,19 +72,10 @@ export function useEmployeeOnboarding(flowId: string) {
 
  const toggleStepComplete = useCallback(
    async (stepId: string, completed: boolean) => {
-     if (!user?.uid || !companyId || !flowId) return;
+     const employeeId = user?.employeeId;
+     if (!employeeId || !companyId || !flowId) return;
 
      const newCompleted = !completed;
-
-     const empQuery = query(
-       collection(db, 'companies', companyId, 'employees'),
-       where('uid', '==', user.uid),
-     );
-
-     const empSnap = await getDocs(empQuery);
-     if (empSnap.empty) return;
-
-     const employeeId = empSnap.docs[0].id;
 
      const flowRef = doc(
        db,
@@ -121,9 +110,6 @@ export function useEmployeeOnboarding(flowId: string) {
        updatedAt: serverTimestamp(),
      });
 
-     console.log('UPDATED IN FIRESTORE');
-
-     // ✅ UI update
      const tasks = updatedMilestones.flatMap((m: any) =>
        (m.tasks ?? []).map((t: any) => ({
          id: t.id,
@@ -136,7 +122,7 @@ export function useEmployeeOnboarding(flowId: string) {
 
      setSteps(tasks);
    },
-   [user?.uid, companyId, flowId],
+   [user?.employeeId, companyId, flowId],
  );
 
   return {

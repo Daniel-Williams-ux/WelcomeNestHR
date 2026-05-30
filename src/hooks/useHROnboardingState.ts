@@ -20,6 +20,8 @@ export function useHROnboardingState(): Result {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
+
     if (sessionLoading) return;
 
     // 1️1 No company → onboarding impossible
@@ -39,6 +41,8 @@ export function useHROnboardingState(): Result {
 
         const snap = await getDocs(q);
 
+        if (cancelled) return;
+
         if (snap.empty) {
           setState('NO_FLOWS');
         } else {
@@ -46,13 +50,21 @@ export function useHROnboardingState(): Result {
         }
       } catch (err) {
         console.error('[useHROnboardingState] failed:', err);
-        setState('NO_FLOWS'); // safe fallback
+        if (!cancelled) {
+          setState('NO_FLOWS');
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     }
 
     checkFlows();
+
+    return () => {
+      cancelled = true;
+    };
   }, [companyId, sessionLoading]);
 
   return { state, loading };

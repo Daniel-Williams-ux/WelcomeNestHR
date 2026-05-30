@@ -15,6 +15,10 @@ export type ChecklistItem = {
   order: number;
 };
 
+export type OnboardingStep = ChecklistItem & {
+  completed: boolean;
+};
+
 export function useOnboardingChecklist(flowId: string) {
   const { user, loading: userLoading } = useUserAccess();
   const { companyId, loading: companyLoading } = useCurrentCompany(user);
@@ -30,12 +34,17 @@ export function useOnboardingChecklist(flowId: string) {
 
     async function load() {
       setLoading(true);
+      if (!companyId) {
+        setLoading(false);
+        return;
+      }
+      const resolvedCompanyId = companyId;
 
       const q = query(
         collection(
           db,
           'companies',
-          companyId,
+          resolvedCompanyId,
           'onboardingFlows',
           flowId,
           'checklistItems',

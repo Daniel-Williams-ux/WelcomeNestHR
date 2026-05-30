@@ -6,6 +6,8 @@ export interface Milestone {
   description: string;
   order: number;
   status: 'pending' | 'in_progress' | 'complete';
+  startDate?: { toDate: () => Date };
+  endDate?: { toDate: () => Date };
 }
 
 export function useMilestones(completionPercent: number) {

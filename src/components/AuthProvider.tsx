@@ -2,10 +2,10 @@
 
 import {
   createContext,
+  type ReactNode,
   useContext,
   useEffect,
   useState,
-  ReactNode,
 } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import {
@@ -13,8 +13,12 @@ import {
   getDoc,
   getDocs,
   collection,
+  limit,
+  query,
   Timestamp,
   setDoc,
+  onSnapshot,
+  where,
 } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 
@@ -28,14 +32,48 @@ type AuthContextType = {
   plan: Plan | null;
   trialEndsAt: Date | null;
   trialDaysLeft: number | null;
+  isTrial: boolean;
+  isPlatinum: boolean;
+  isTrialExpired: boolean;
+  isSuspended: boolean;
   loading: boolean;
 };
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  console.log('AUTH PROVIDER RENDERING');
+const buildState = (
+  value: Omit<AuthContextType, 'isTrial' | 'isPlatinum' | 'isTrialExpired'>,
+): AuthContextType => {
+  const isTrial = value.plan === 'Trial';
+  const isPlatinum = value.plan === 'Platinum';
+  const isTrialExpired = isTrial && value.trialDaysLeft === 0;
 
+  return {
+    ...value,
+    isTrial,
+    isPlatinum,
+    isTrialExpired,
+  };
+};
+
+const normalizePlan = (value: unknown): Plan | null => {
+  const normalized = String(value ?? '').trim().toLowerCase();
+
+  if (normalized === 'trial') return 'Trial';
+  if (normalized === 'platinum') return 'Platinum';
+
+  return null;
+};
+
+const normalizeRole = (value: unknown): Role | null => {
+  if (value === 'superadmin' || value === 'hr' || value === 'employee') {
+    return value;
+  }
+
+  return null;
+};
+
+export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthContextType>({
     user: null,
     companyId: null,
@@ -43,138 +81,152 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     plan: null,
     trialEndsAt: null,
     trialDaysLeft: null,
+    isTrial: false,
+    isPlatinum: false,
+    isTrialExpired: false,
+    isSuspended: false,
     loading: true,
   });
 
-  //  CRITICAL: prevents transient null auth from killing routes
-
   useEffect(() => {
-    console.log('[AuthProvider] effect mounted');
+    let userDocUnsub: (() => void) | null = null;
 
-    const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
-      console.log('[AUTH CHECK]', {
-        uid: firebaseUser?.uid ?? null,
-        email: firebaseUser?.email ?? null,
-      });
+    const resetUserState = () => {
+      setState(buildState({
+        user: null,
+        companyId: null,
+        role: null,
+        plan: null,
+        trialEndsAt: null,
+        trialDaysLeft: null,
+        isSuspended: false,
+        loading: false,
+      }));
+    };
+
+    const unsub = onAuthStateChanged(auth, (firebaseUser) => {
+      userDocUnsub?.();
+      userDocUnsub = null;
 
       if (!firebaseUser) {
-        setState({
-          user: null,
-          companyId: null,
-          role: null,
-          plan: null,
-          trialEndsAt: null,
-          trialDaysLeft: null,
-          loading: false,
-        });
+        resetUserState();
         return;
       }
 
-      let snap;
-      let retries = 0;
+      setState((current) => ({
+        ...current,
+        user: firebaseUser,
+        loading: true,
+      }));
 
-      while (retries < 5) {
-        snap = await getDoc(doc(db, 'users', firebaseUser.uid));
-
-        if (snap.exists()) break;
-
-        await new Promise((res) => setTimeout(res, 300));
-        retries++;
-      }
-
-      if (!snap || !snap.exists()) {
-        console.error('User doc not found after retries');
-
-        setState({
-          user: firebaseUser,
-          companyId: null,
-          role: null,
-          plan: null,
-          trialEndsAt: null,
-          trialDaysLeft: null,
-          loading: false,
-        });
-
-        return;
-      }
-
-      const userData = snap.data();
-      const role = userData.role ?? 'employee';
-      const companyId = userData.companyId ?? null;
-
-      let employeeId: string | null = null;
-
-      if (companyId && firebaseUser.email) {
-        const employeesSnap = await getDocs(
-          collection(db, 'companies', companyId, 'employees'),
-        );
-
-        employeesSnap.forEach((docSnap) => {
-          const data = docSnap.data();
-
-          if (data.uid === firebaseUser.uid) {
-            employeeId = docSnap.id;
-          }
-        });
-
-        // Always sync back (fix stale data forever)
-        if (employeeId && userData.employeeId !== employeeId) {
-          await setDoc(
-            doc(db, 'users', firebaseUser.uid),
-            { employeeId },
-            { merge: true },
-          );
-        }
-      }
-
-      let plan: Plan | null = null;
-      let trialEndsAt: Date | null = null;
-      let trialDaysLeft: number | null = null;
-
-      if (companyId) {
-        const companySnap = await getDoc(doc(db, 'companies', companyId));
-
-        if (companySnap.exists()) {
-          const company = companySnap.data();
-
-          if (company.plan === 'Trial' || company.plan === 'Platinum') {
-            plan = company.plan;
+      userDocUnsub = onSnapshot(
+        doc(db, 'users', firebaseUser.uid),
+        async (snap) => {
+          if (!snap.exists()) {
+            setState(buildState({
+              user: firebaseUser,
+              companyId: null,
+              role: null,
+              plan: null,
+              trialEndsAt: null,
+              trialDaysLeft: null,
+              isSuspended: false,
+              loading: false,
+            }));
+            return;
           }
 
-          if (company.trialEndsAt) {
-            const ts =
-              company.trialEndsAt instanceof Timestamp
-                ? company.trialEndsAt
-                : Timestamp.fromMillis(new Date(company.trialEndsAt).getTime());
+          const userData = snap.data();
+          const role = normalizeRole(userData.role);
+          const companyId = userData.companyId ?? null;
 
-            trialEndsAt = ts.toDate();
+          let employeeId: string | null = userData.employeeId ?? null;
 
-            const diff = trialEndsAt.getTime() - Date.now();
-            trialDaysLeft = Math.max(
-              0,
-              Math.ceil(diff / (1000 * 60 * 60 * 24)),
+          if (role === 'employee' && companyId && firebaseUser.email) {
+            const employeesSnap = await getDocs(
+              query(
+                collection(db, 'companies', companyId, 'employees'),
+                where('uid', '==', firebaseUser.uid),
+                limit(1),
+              ),
             );
-          }
-        }
-      }
 
-      setState({
-        user: {
-          uid: firebaseUser.uid,
-          email: firebaseUser.email,
-          ...userData,
-          employeeId, 
+            employeeId = employeesSnap.docs[0]?.id ?? employeeId;
+
+            if (employeeId && userData.employeeId !== employeeId) {
+              await setDoc(
+                doc(db, 'users', firebaseUser.uid),
+                { employeeId },
+                { merge: true },
+              );
+            }
+          }
+
+          let plan: Plan | null = null;
+          let trialEndsAt: Date | null = null;
+          let trialDaysLeft: number | null = null;
+
+          if (companyId) {
+            const companySnap = await getDoc(doc(db, 'companies', companyId));
+
+            if (companySnap.exists()) {
+              const company = companySnap.data();
+
+              plan = normalizePlan(company.plan);
+
+              if (company.trialEndsAt) {
+                const ts =
+                  company.trialEndsAt instanceof Timestamp
+                    ? company.trialEndsAt
+                    : Timestamp.fromMillis(new Date(company.trialEndsAt).getTime());
+
+                trialEndsAt = ts.toDate();
+
+                const diff = trialEndsAt.getTime() - Date.now();
+                trialDaysLeft = Math.max(
+                  0,
+                  Math.ceil(diff / (1000 * 60 * 60 * 24)),
+                );
+              }
+            }
+          }
+
+          setState(buildState({
+            user: {
+              uid: firebaseUser.uid,
+              email: firebaseUser.email,
+              ...userData,
+              employeeId,
+            },
+            companyId,
+            role,
+            plan,
+            trialEndsAt,
+            trialDaysLeft,
+            isSuspended: userData.status === 'suspended' || userData.isSuspended === true,
+            loading: false,
+          }));
         },
-        companyId,
-        role,
-        plan,
-        trialEndsAt,
-        trialDaysLeft,
-        loading: false,
-      });
+        (error) => {
+          console.error('Auth user document listener failed:', error);
+          setState(buildState({
+            user: firebaseUser,
+            companyId: null,
+            role: null,
+            plan: null,
+            trialEndsAt: null,
+            trialDaysLeft: null,
+            isSuspended: false,
+            loading: false,
+          }));
+        },
+      );
     });
 
-    return () => unsub();
+    return () => {
+      userDocUnsub?.();
+      unsub();
+    };
   }, []);
 
   return <AuthContext.Provider value={state}>{children}</AuthContext.Provider>;

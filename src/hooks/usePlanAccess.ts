@@ -1,14 +1,10 @@
 import { useUserAccess } from "@/hooks/useUserAccess";
 
 export function usePlanAccess() {
-  const { plan, trialDaysLeft } = useUserAccess();
+  const { plan, trialDaysLeft, isTrial, isPlatinum, isTrialExpired } =
+    useUserAccess();
 
-  const isTrial = plan === "trial";
-  const isPlatinum = plan === "platinum";
-
-  // Safely check if trial is still active
-  const trialActive =
-    isTrial && typeof trialDaysLeft === "number" && trialDaysLeft > 0;
+  const trialActive = isTrial && !isTrialExpired;
 
   const hasAccess = isPlatinum || trialActive;
 
@@ -17,6 +13,7 @@ export function usePlanAccess() {
     canUseITAddon: isPlatinum, // Only Platinum users get IT Management
     isTrial,
     isPlatinum,
+    isTrialExpired,
     trialDaysLeft: trialDaysLeft ?? null, // Optional: keep it normalized
     plan,
   };

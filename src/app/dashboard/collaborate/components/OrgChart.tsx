@@ -14,7 +14,7 @@ export default function OrgChart({
 
   return (
     <motion.section className="rounded-2xl shadow-sm bg-white dark:bg-gray-900 border p-6">
-      <h2 className="text-lg font-semibold mb-4">Org Chart 🏢</h2>
+      <h2 className="text-lg font-semibold mb-4">Org Chart</h2>
 
       {loading ? (
         <p className="text-sm text-gray-500">Loading team...</p>

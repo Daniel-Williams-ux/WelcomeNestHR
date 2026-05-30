@@ -8,6 +8,7 @@ import {
   onSnapshot,
   getDocs,
   limit,
+  getCountFromServer,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
@@ -55,95 +56,141 @@ export default function SuperAdminOverview() {
   // 2️⃣ FETCH LATEST PAYROLL FOR EACH COMPANY (for overview table)
   // -----------------------------------------------------------
   useEffect(() => {
-    if (companies.length === 0) return;
+    let cancelled = false;
 
     const loadPayrolls = async () => {
       setLoadingPayroll(true);
-      const results: any[] = [];
 
-      for (const c of companies) {
-        const payrollRef = collection(db, 'companies', c.id, 'payrolls');
-        const q = query(payrollRef, orderBy('createdAt', 'desc'), limit(1));
-
-        const snap = await getDocs(q);
-
-        if (!snap.empty) {
-          const p = snap.docs[0].data();
-          results.push({
-            companyId: c.id,
-            companyName: c.name,
-            employees: c.employeeCount ?? 0,
-            ...p,
-          });
-        } else {
-          results.push({
-            companyId: c.id,
-            companyName: c.name,
-            employees: c.employeeCount ?? 0,
-            period: '—',
-            status: 'No Data',
-            lastRun: '—',
-          });
-        }
+      if (companies.length === 0) {
+        setPayrolls([]);
+        setLoadingPayroll(false);
+        return;
       }
 
-      setPayrolls(results);
-      setLoadingPayroll(false);
+      try {
+        const results = await Promise.all(
+          companies.map(async (c) => {
+            const payrollRef = collection(db, 'companies', c.id, 'payrolls');
+            const q = query(payrollRef, orderBy('createdAt', 'desc'), limit(1));
+
+            const snap = await getDocs(q);
+
+            if (!snap.empty) {
+              const p = snap.docs[0].data();
+              return {
+                companyId: c.id,
+                companyName: c.name,
+                employees: c.employeeCount ?? 0,
+                ...p,
+              };
+            }
+
+            return {
+              companyId: c.id,
+              companyName: c.name,
+              employees: c.employeeCount ?? 0,
+              period: '—',
+              status: 'No Data',
+              lastRun: '—',
+            };
+          })
+        );
+
+        if (!cancelled) {
+          setPayrolls(results);
+        }
+      } catch (err) {
+        console.error('SuperAdmin payroll overview error:', err);
+        if (!cancelled) setPayrolls([]);
+      } finally {
+        if (!cancelled) setLoadingPayroll(false);
+      }
     };
 
     loadPayrolls();
+
+    return () => {
+      cancelled = true;
+    };
   }, [companies]);
 
   // -----------------------------
   // 1️⃣b FETCH PLATFORM USERS (Auth accounts)
   // -----------------------------
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, 'users'), (snap) => {
-      setPlatformUsersCount(snap.size);
-    });
+    let cancelled = false;
 
-    return () => unsub();
+    const loadUserCount = async () => {
+      try {
+        const snap = await getCountFromServer(collection(db, 'users'));
+        if (!cancelled) setPlatformUsersCount(snap.data().count);
+      } catch (err) {
+        console.error('SuperAdmin user count error:', err);
+        if (!cancelled) setPlatformUsersCount(0);
+      }
+    };
+
+    loadUserCount();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // --------------------------------------------------------------
   // 3️⃣ GLOBAL RECENT PAYROLL RUNS (latest 5 runs across companies)
   // --------------------------------------------------------------
   useEffect(() => {
-    if (companies.length === 0) return;
+    let cancelled = false;
 
     const loadRecentRuns = async () => {
       setLoadingRecent(true);
 
-      const allPayrolls: any[] = [];
-
-      for (const c of companies) {
-        const ref = collection(db, 'companies', c.id, 'payrolls');
-        const q = query(ref, orderBy('createdAt', 'desc'), limit(5));
-
-        const snap = await getDocs(q);
-
-        snap.forEach((doc) => {
-          allPayrolls.push({
-            companyName: c.name,
-            employees: c.employeeCount ?? 0,
-            ...doc.data(),
-          });
-        });
+      if (companies.length === 0) {
+        setRecentRuns([]);
+        setLoadingRecent(false);
+        return;
       }
 
-      // Sort globally by lastRun
-      allPayrolls.sort((a, b) => {
-        const aTime = a.lastRun ? new Date(a.lastRun).getTime() : 0;
-        const bTime = b.lastRun ? new Date(b.lastRun).getTime() : 0;
-        return bTime - aTime;
-      });
+      try {
+        const payrollGroups = await Promise.all(
+          companies.map(async (c) => {
+            const ref = collection(db, 'companies', c.id, 'payrolls');
+            const q = query(ref, orderBy('createdAt', 'desc'), limit(5));
+            const snap = await getDocs(q);
 
-      // keep top 5
-      setRecentRuns(allPayrolls.slice(0, 5));
-      setLoadingRecent(false);
+            return snap.docs.map((doc) => ({
+              companyName: c.name,
+              employees: c.employeeCount ?? 0,
+              ...doc.data(),
+            }));
+          })
+        );
+
+        const allPayrolls = payrollGroups.flat() as any[];
+
+        allPayrolls.sort((a, b) => {
+          const aTime = a.lastRun ? new Date(a.lastRun).getTime() : 0;
+          const bTime = b.lastRun ? new Date(b.lastRun).getTime() : 0;
+          return bTime - aTime;
+        });
+
+        if (!cancelled) {
+          setRecentRuns(allPayrolls.slice(0, 5));
+        }
+      } catch (err) {
+        console.error('SuperAdmin recent payroll error:', err);
+        if (!cancelled) setRecentRuns([]);
+      } finally {
+        if (!cancelled) setLoadingRecent(false);
+      }
     };
 
     loadRecentRuns();
+
+    return () => {
+      cancelled = true;
+    };
   }, [companies]);
 
   // -----------------------------

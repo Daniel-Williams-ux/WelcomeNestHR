@@ -16,7 +16,7 @@ export default function Announcement({
   return (
     <motion.section className="rounded-2xl shadow-sm bg-white dark:bg-gray-900 border p-6">
       <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-        <Megaphone className="h-5 w-5 text-[#FB8C00]" />
+        <Megaphone className="h-5 w-5 text-[#FB8C00]" aria-hidden="true" />
         Announcements
       </h2>
 

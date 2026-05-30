@@ -86,27 +86,11 @@ export async function getEmployeeBuddy(companyId: string, employeeId: string) {
 
   const snap = await getDocs(ref);
 
-  // console.log(
-  //   '📦 ALL buddyAssignments:',
-  //   snap.docs.map((d) => d.data()),
-  // );
-
-  // console.log('🔍 Searching for employeeId:', employeeId);
-  console.log(
-    'ALL employeeIds:',
-    snap.docs.map((d) => d.data().employeeId),
-  );
-
-  console.log('CURRENT employeeId:', employeeId);
-
   const match = snap.docs.find((d) => d.data().employeeId === employeeId);
 
   if (!match) {
-    console.log('❌ NO MATCH FOUND');
     return null;
   }
-
-  console.log('✅ MATCH FOUND:', match.data());
 
   return {
     id: match.id,
@@ -179,8 +163,15 @@ export async function getAnnouncements(
 //  ORG DATA
 // ================================
 
+export type CollaborateEmployee = {
+  id: string;
+  uid?: string;
+  employeeId?: string;
+  name?: string;
+};
+
 // Get employees for org (flat list)
-export async function getEmployeesForOrg(companyId: string) {
+export async function getEmployeesForOrg(companyId: string): Promise<CollaborateEmployee[]> {
   const ref = collection(db, `companies/${companyId}/employees`);
 
   const snap = await getDocs(ref);
@@ -188,7 +179,7 @@ export async function getEmployeesForOrg(companyId: string) {
   const employees = snap.docs.map((docSnap) => ({
     id: docSnap.id,
     ...docSnap.data(),
-  }));
+  })) as CollaborateEmployee[];
 
   return employees;
 }

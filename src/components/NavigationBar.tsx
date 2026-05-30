@@ -1,10 +1,41 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { Menu, X, ChevronDown, Sun, Moon } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import Link from "next/link";
+import { AnimatePresence, motion } from "framer-motion";
+import { ChevronDown, Menu, Moon, Sun, X } from "lucide-react";
+
+type NavLink =
+  | {
+      name: string;
+      href: string;
+      dropdown?: false;
+    }
+  | {
+      name: string;
+      dropdown: true;
+      children: { name: string; href: string }[];
+    };
+
+const navLinks: NavLink[] = [
+  { name: "Home", href: "/" },
+  { name: "Why", href: "#why" },
+  {
+    name: "Platform",
+    dropdown: true,
+    children: [
+      { name: "Smart Onboarding", href: "#onboarding" },
+      { name: "LifeSync", href: "#lifesync" },
+      { name: "Collaborate", href: "#collaborate" },
+      { name: "Compliance", href: "#compliance" },
+      { name: "Primer", href: "#primer" },
+    ],
+  },
+  { name: "Features", href: "#features" },
+  { name: "Pricing", href: "#pricing" },
+  { name: "Resources", href: "#resources" },
+];
 
 const NavigationBar = () => {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -13,30 +44,10 @@ const NavigationBar = () => {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const navLinks = [
-    { name: "Home", href: "/" },
-    { name: "Why WelcomeNest?", href: "#why" },
-    {
-      name: "Platform",
-      dropdown: true,
-      children: [
-        { name: "Smart Onboarding", href: "#onboarding" },
-        { name: "LifeSync", href: "#lifesync" },
-        { name: "Collaborate", href: "#collaborate" },
-        { name: "Compliance", href: "#compliance" },
-        { name: "Primer", href: "#primer" },
-      ],
-    },
-    { name: "Features", href: "#features" },
-    { name: "Pricing", href: "#pricing" },
-    { name: "Resources", href: "#resources" },
-  ];
-
   useEffect(() => {
     const storedTheme = localStorage.getItem("theme");
-    const prefersDark = window.matchMedia(
-      "(prefers-color-scheme: dark)"
-    ).matches;
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+
     if (storedTheme === "dark" || (!storedTheme && prefersDark)) {
       document.documentElement.classList.add("dark");
       setIsDarkMode(true);
@@ -45,13 +56,6 @@ const NavigationBar = () => {
       setIsDarkMode(false);
     }
   }, []);
-
-  const toggleDarkMode = () => {
-    const newTheme = isDarkMode ? "light" : "dark";
-    localStorage.setItem("theme", newTheme);
-    document.documentElement.classList.toggle("dark");
-    setIsDarkMode(!isDarkMode);
-  };
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -62,6 +66,7 @@ const NavigationBar = () => {
         setModulesOpen(false);
       }
     };
+
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
@@ -74,60 +79,86 @@ const NavigationBar = () => {
         setMobileModulesOpen(false);
       }
     };
+
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, []);
 
   useEffect(() => {
     document.body.style.overflow = menuOpen ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
   }, [menuOpen]);
 
+  const closeMobileMenu = () => {
+    setMenuOpen(false);
+    setMobileModulesOpen(false);
+  };
+
+  const toggleDarkMode = () => {
+    const nextTheme = isDarkMode ? "light" : "dark";
+    localStorage.setItem("theme", nextTheme);
+    document.documentElement.classList.toggle("dark");
+    setIsDarkMode((current) => !current);
+  };
+
   return (
-    <header className="fixed top-0 left-0 w-full bg-white/90 backdrop-blur z-50 border-b border-gray-200 shadow-sm">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 h-28 flex justify-between items-center">
-        <Link href="/" className="flex items-center gap-2">
+    <header className="fixed inset-x-0 top-0 z-50 border-b border-slate-200/80 bg-white/90 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-[#121212]/90">
+      <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+        <Link
+          href="/"
+          className="flex shrink-0 items-center rounded-md"
+          aria-label="WelcomeNestHR home"
+          onClick={closeMobileMenu}
+        >
           <Image
-            src={isDarkMode ? "/welcomenesthr.png" : "/welcomenesthr.png"}
-            alt="WelcomeNest Logo"
-            width={110}
-            height={48}
-            priority
+            src="/welcomenesthr.png"
+            alt="WelcomeNestHR"
+            width={132}
+            height={58}
+            className="h-auto w-[108px] sm:w-[120px]"
+            sizes="(max-width: 640px) 108px, 120px"
           />
         </Link>
 
-        {/* Desktop Nav */}
-        <nav className="hidden md:flex items-center gap-6">
+        <nav className="hidden items-center gap-1 lg:flex" aria-label="Primary">
           {navLinks.map((link) =>
             link.dropdown ? (
               <div key={link.name} className="relative" ref={dropdownRef}>
                 <button
                   type="button"
-                  onClick={() => setModulesOpen(!modulesOpen)}
-                  className="flex items-center gap-1 text-gray-700 dark:text-gray-200 hover:text-[#00ACC1] transition group"
+                  onClick={() => setModulesOpen((open) => !open)}
+                  className="flex items-center gap-1 rounded-md px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-cyan-50 hover:text-[#00ACC1] dark:text-slate-200 dark:hover:bg-white/10"
+                  aria-expanded={modulesOpen}
+                  aria-haspopup="menu"
                 >
                   {link.name}
                   <motion.span
                     animate={{ rotate: modulesOpen ? 180 : 0 }}
-                    transition={{ duration: 0.3 }}
+                    transition={{ duration: 0.2 }}
                   >
-                    <ChevronDown size={16} />
+                    <ChevronDown size={16} aria-hidden="true" />
                   </motion.span>
                 </button>
 
                 <AnimatePresence>
                   {modulesOpen && (
                     <motion.div
-                      initial={{ opacity: 0, y: 10 }}
+                      initial={{ opacity: 0, y: 8 }}
                       animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: 10 }}
-                      transition={{ duration: 0.2 }}
-                      className="absolute top-full left-0 mt-2 bg-white dark:bg-gray-800 shadow-lg rounded-md border z-30 w-52 overflow-hidden"
+                      exit={{ opacity: 0, y: 8 }}
+                      transition={{ duration: 0.18 }}
+                      className="absolute left-0 top-full mt-3 w-56 overflow-hidden rounded-lg border border-slate-200 bg-white py-2 shadow-xl dark:border-white/10 dark:bg-[#1E1E1E]"
+                      role="menu"
                     >
                       {link.children?.map((child) => (
                         <Link
                           key={child.name}
                           href={child.href}
-                          className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-[#FFF3E0] dark:hover:bg-gray-700 hover:text-[#FB8C00]"
+                          className="block px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-orange-50 hover:text-[#FB8C00] dark:text-slate-200 dark:hover:bg-white/10"
+                          role="menuitem"
+                          onClick={() => setModulesOpen(false)}
                         >
                           {child.name}
                         </Link>
@@ -140,144 +171,168 @@ const NavigationBar = () => {
               <Link
                 key={link.name}
                 href={link.href}
-                className="text-gray-700 dark:text-gray-200 hover:text-[#00ACC1] relative group transition"
+                className="rounded-md px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-cyan-50 hover:text-[#00ACC1] dark:text-slate-200 dark:hover:bg-white/10"
               >
-                <span className="absolute -bottom-1 left-0 h-[2px] w-0 bg-[#00ACC1] group-hover:w-full transition-all duration-300"></span>
                 {link.name}
               </Link>
             )
           )}
+        </nav>
 
+        <div className="hidden items-center gap-3 lg:flex">
           <button
+            type="button"
             onClick={toggleDarkMode}
-            className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition"
-            aria-label="Toggle Dark Mode"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-md text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-white/10"
+            aria-label={isDarkMode ? "Switch to light mode" : "Switch to dark mode"}
           >
-            {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
+            {isDarkMode ? (
+              <Sun size={18} aria-hidden="true" />
+            ) : (
+              <Moon size={18} aria-hidden="true" />
+            )}
           </button>
 
           <Link
             href="/demo"
-            className="px-4 py-2 border border-[#FB8C00] text-[#FB8C00] hover:bg-[#FFF3E0] dark:hover:bg-gray-800 transition rounded-md text-sm font-semibold shadow-sm"
+            className="rounded-md border border-[#FB8C00] px-4 py-2 text-sm font-semibold text-[#FB8C00] transition hover:bg-orange-50 dark:hover:bg-white/10"
           >
             Request Demo
           </Link>
-
           <Link
             href="/login"
-            className="text-sm text-gray-600 dark:text-gray-300 hover:text-[#00ACC1]"
+            className="rounded-md px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-cyan-50 hover:text-[#00ACC1] dark:text-slate-300 dark:hover:bg-white/10"
           >
             Login
           </Link>
           <Link
             href="/signup"
-            className="ml-4 px-4 py-2 text-white bg-gradient-to-r from-[#FFB300] to-[#FB8C00] hover:brightness-90 transition rounded-md text-sm font-semibold shadow whitespace-nowrap"
+            className="rounded-md bg-gradient-to-r from-[#FFB300] to-[#FB8C00] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:brightness-95"
           >
             Get Started
           </Link>
-        </nav>
-
-        {/* Mobile dark mode button */}
-        <div className="md:hidden mr-2">
-          <button
-            onClick={toggleDarkMode}
-            className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition"
-            aria-label="Toggle Dark Mode"
-          >
-            {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
-          </button>
         </div>
 
-        {/* Mobile menu toggle */}
-        <button
-          type="button"
-          onClick={() => setMenuOpen(!menuOpen)}
-          className="md:hidden"
-          aria-label="Toggle mobile menu"
-        >
-          {menuOpen ? <X size={24} /> : <Menu size={24} />}
-        </button>
+        <div className="flex items-center gap-2 lg:hidden">
+          <button
+            type="button"
+            onClick={toggleDarkMode}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-md text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-white/10"
+            aria-label={isDarkMode ? "Switch to light mode" : "Switch to dark mode"}
+          >
+            {isDarkMode ? (
+              <Sun size={18} aria-hidden="true" />
+            ) : (
+              <Moon size={18} aria-hidden="true" />
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setMenuOpen((open) => !open)}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-md text-slate-800 transition hover:bg-slate-100 dark:text-slate-100 dark:hover:bg-white/10"
+            aria-label="Toggle navigation menu"
+            aria-expanded={menuOpen}
+            aria-controls="mobile-navigation"
+          >
+            {menuOpen ? (
+              <X size={24} aria-hidden="true" />
+            ) : (
+              <Menu size={24} aria-hidden="true" />
+            )}
+          </button>
+        </div>
       </div>
 
-      {/* Mobile dropdown menu */}
       <AnimatePresence>
         {menuOpen && (
-          <motion.div
+          <motion.nav
+            id="mobile-navigation"
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.3, ease: "easeInOut" }}
-            className="md:hidden bg-white dark:bg-gray-900 border-t overflow-hidden px-4 py-4 space-y-3 shadow"
+            transition={{ duration: 0.22, ease: "easeInOut" }}
+            className="overflow-hidden border-t border-slate-200 bg-white px-4 py-4 shadow-lg dark:border-white/10 dark:bg-[#121212] lg:hidden"
+            aria-label="Mobile primary"
           >
-            {navLinks.map((link) =>
-              link.dropdown ? (
-                <div key={link.name}>
-                  <button
-                    type="button"
-                    onClick={() => setMobileModulesOpen((prev) => !prev)}
-                    className="flex items-center gap-1 text-gray-700 dark:text-gray-200 font-medium w-full"
+            <div className="space-y-1">
+              {navLinks.map((link) =>
+                link.dropdown ? (
+                  <div key={link.name}>
+                    <button
+                      type="button"
+                      onClick={() => setMobileModulesOpen((open) => !open)}
+                      className="flex w-full items-center justify-between rounded-md px-3 py-3 text-left text-sm font-semibold text-slate-800 transition hover:bg-cyan-50 hover:text-[#00ACC1] dark:text-slate-100 dark:hover:bg-white/10"
+                      aria-expanded={mobileModulesOpen}
+                    >
+                      {link.name}
+                      <ChevronDown
+                        size={16}
+                        aria-hidden="true"
+                        className={`transition ${
+                          mobileModulesOpen ? "rotate-180" : ""
+                        }`}
+                      />
+                    </button>
+                    <AnimatePresence>
+                      {mobileModulesOpen && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: "auto" }}
+                          exit={{ opacity: 0, height: 0 }}
+                          className="ml-3 border-l border-cyan-100 pl-3 dark:border-white/10"
+                        >
+                          {link.children?.map((child) => (
+                            <Link
+                              key={child.name}
+                              href={child.href}
+                              className="block rounded-md px-3 py-2 text-sm text-slate-600 transition hover:bg-orange-50 hover:text-[#FB8C00] dark:text-slate-300 dark:hover:bg-white/10"
+                              onClick={closeMobileMenu}
+                            >
+                              {child.name}
+                            </Link>
+                          ))}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                ) : (
+                  <Link
+                    key={link.name}
+                    href={link.href}
+                    className="block rounded-md px-3 py-3 text-sm font-semibold text-slate-800 transition hover:bg-cyan-50 hover:text-[#00ACC1] dark:text-slate-100 dark:hover:bg-white/10"
+                    onClick={closeMobileMenu}
                   >
                     {link.name}
-                    <ChevronDown
-                      size={16}
-                      className={`transform transition ${
-                        mobileModulesOpen ? "rotate-180" : ""
-                      }`}
-                    />
-                  </button>
-                  <AnimatePresence>
-                    {mobileModulesOpen && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: "auto" }}
-                        exit={{ opacity: 0, height: 0 }}
-                        className="ml-4 mt-2 space-y-1"
-                      >
-                        {link.children?.map((child) => (
-                          <Link
-                            key={child.name}
-                            href={child.href}
-                            className="block text-sm text-gray-600 dark:text-gray-300 py-1 hover:text-[#00ACC1]"
-                          >
-                            {child.name}
-                          </Link>
-                        ))}
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              ) : (
-                <Link
-                  key={link.name}
-                  href={link.href}
-                  className="block text-gray-700 dark:text-gray-300 hover:text-[#00ACC1]"
-                >
-                  {link.name}
-                </Link>
-              )
-            )}
+                  </Link>
+                )
+              )}
+            </div>
 
-            <Link
-              href="/demo"
-              className="block text-gray-600 dark:text-gray-300 hover:text-[#00ACC1]"
-            >
-              Request Demo
-            </Link>
-
-            <Link
-              href="/login"
-              className="block text-gray-600 dark:text-gray-300 hover:text-[#00ACC1]"
-            >
-              Login
-            </Link>
-
-            <Link
-              href="/signup"
-              className="ml-4 px-4 py-2 text-white bg-gradient-to-r from-[#FFB300] to-[#FB8C00] hover:brightness-90 transition rounded-md text-sm font-semibold shadow whitespace-nowrap"
-            >
-              Sign Up
-            </Link>
-          </motion.div>
+            <div className="mt-4 grid gap-3 border-t border-slate-200 pt-4 dark:border-white/10 sm:grid-cols-3">
+              <Link
+                href="/demo"
+                className="rounded-md border border-[#FB8C00] px-4 py-3 text-center text-sm font-semibold text-[#FB8C00]"
+                onClick={closeMobileMenu}
+              >
+                Request Demo
+              </Link>
+              <Link
+                href="/login"
+                className="rounded-md border border-slate-200 px-4 py-3 text-center text-sm font-semibold text-slate-700 dark:border-white/10 dark:text-slate-200"
+                onClick={closeMobileMenu}
+              >
+                Login
+              </Link>
+              <Link
+                href="/signup"
+                className="rounded-md bg-gradient-to-r from-[#FFB300] to-[#FB8C00] px-4 py-3 text-center text-sm font-semibold text-white shadow-sm"
+                onClick={closeMobileMenu}
+              >
+                Get Started
+              </Link>
+            </div>
+          </motion.nav>
         )}
       </AnimatePresence>
     </header>

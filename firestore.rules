@@ -1,36 +1,436 @@
-// firestore.rules
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // --- PUBLIC COLLECTIONS ---
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userPath(uid) {
+      return /databases/$(database)/documents/users/$(uid);
+    }
+
+    function employeePath(companyId, employeeId) {
+      return /databases/$(database)/documents/companies/$(companyId)/employees/$(employeeId);
+    }
+
+    function hasUserDoc() {
+      return signedIn() && exists(userPath(request.auth.uid));
+    }
+
+    function currentUser() {
+      return get(userPath(request.auth.uid)).data;
+    }
+
+    function hasRole(roles) {
+      return hasUserDoc() && currentUser().role in roles;
+    }
+
+    function isSuperadmin() {
+      return hasRole(['superadmin']);
+    }
+
+    function isHrOrSuperadmin() {
+      return hasRole(['hr', 'superadmin']);
+    }
+
+    function isCompanyMember(companyId) {
+      return isSuperadmin()
+        || (hasUserDoc() && currentUser().companyId == companyId);
+    }
+
+    function isEmployeeOwner(companyId, employeeId) {
+      return signedIn()
+        && (
+          get(employeePath(companyId, employeeId)).data.uid == request.auth.uid
+          || (
+            hasUserDoc()
+            && currentUser().companyId == companyId
+            && currentUser().employeeId == employeeId
+          )
+        );
+    }
+
+    function canManageCompany(companyId) {
+      return isSuperadmin()
+        || (
+          hasRole(['hr'])
+          && currentUser().companyId == companyId
+        );
+    }
+
+    // =====================================================
+    // PUBLIC TEMPLATES
+    // =====================================================
     match /onboardingTemplates/{templateId} {
       allow read: if true;
       allow write: if false;
     }
 
-    // --- USER DOCUMENTS ---
-    match /users/{userId} {
-      allow create: if request.auth != null && request.auth.uid == userId;
-      allow read, update, delete: if request.auth != null && request.auth.uid == userId;
-
-      match /{sub=**}/{docId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
-      }
-    }
-
-    // --- CUSTOMERS ---
-    match /customers/{customerId} {
-      allow create, read, update, delete: if request.auth != null && request.auth.uid == customerId;
-    }
-
-    // --- ORGANIZATION TASKS ---
-    match /organizations/{orgId}/onboardingTasks/{taskId} {
-      allow read: if request.auth != null;
+    match /primerTemplates/{templateId} {
+      allow read: if true;
       allow write: if false;
     }
 
-    // --- DENY BY DEFAULT ---
+    // =====================================================
+    // USERS
+    // =====================================================
+    match /users/{userId} {
+      allow read: if signedIn()
+        && (request.auth.uid == userId || hasRole(['hr', 'superadmin']));
+
+      allow create: if signedIn()
+        && request.auth.uid == userId;
+
+      allow update: if signedIn()
+        && (
+          request.auth.uid == userId
+          || isSuperadmin()
+        );
+
+      allow delete: if isSuperadmin();
+
+      // Employee-owned onboarding data.
+      match /onboarding/{docId} {
+        allow read, write: if signedIn() && request.auth.uid == userId;
+      }
+
+      match /milestones/{docId} {
+        allow read, write: if signedIn() && request.auth.uid == userId;
+      }
+
+      match /onboardingMilestones/{docId} {
+        allow read, write: if signedIn() && request.auth.uid == userId;
+      }
+
+      match /onboardingProgress/{flowId}/items/{itemId} {
+        allow read, write: if signedIn() && request.auth.uid == userId;
+      }
+
+      match /onboardingFlows/{flowId} {
+        allow read: if signedIn()
+          && (
+            request.auth.uid == userId
+            || hasRole(['hr', 'superadmin'])
+          );
+
+        allow create, update, delete: if false;
+
+        match /progress/{stepId} {
+          allow read: if signedIn()
+            && (
+              request.auth.uid == userId
+              || hasRole(['hr', 'superadmin'])
+            );
+
+          allow write: if signedIn()
+            && request.auth.uid == userId;
+        }
+      }
+
+      // LifeSync mood and wellness entries.
+      match /lifesync/{module}/entries/{entryId} {
+        allow read: if signedIn()
+          && (
+            request.auth.uid == userId
+            || hasRole(['hr', 'superadmin'])
+          );
+
+        allow write: if signedIn()
+          && request.auth.uid == userId;
+      }
+
+      // Employee payslip mirror.
+      match /payslips/{payslipId} {
+        allow read: if signedIn()
+          && (
+            request.auth.uid == userId
+            || hasRole(['hr', 'superadmin'])
+          );
+
+        allow create: if isHrOrSuperadmin();
+        allow update, delete: if false;
+      }
+    }
+
+    // =====================================================
+    // CUSTOMERS / BILLING
+    // =====================================================
+    match /customers/{customerId} {
+      allow create: if signedIn()
+        && request.auth.uid == customerId;
+
+      allow read, update, delete: if signedIn()
+        && (
+          request.auth.uid == customerId
+          || isSuperadmin()
+        );
+    }
+
+    // =====================================================
+    // COMPANIES
+    // =====================================================
+    match /companies/{companyId} {
+      allow read: if signedIn();
+
+      allow create, delete: if isSuperadmin();
+
+      allow update: if canManageCompany(companyId);
+
+      // -----------------------------------------------------
+      // EMPLOYEES
+      // -----------------------------------------------------
+      match /employees/{employeeId} {
+        allow read, list: if isCompanyMember(companyId);
+
+        allow create: if canManageCompany(companyId);
+
+        allow update: if canManageCompany(companyId)
+          || (
+            signedIn()
+            && request.resource.data.uid == request.auth.uid
+            && resource.data.uid == null
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'uid',
+              'updatedAt'
+            ])
+          );
+
+        allow delete: if canManageCompany(companyId);
+
+        match /onboardingFlows/{flowId} {
+          allow read: if isCompanyMember(companyId);
+          allow create, update: if canManageCompany(companyId)
+            || isEmployeeOwner(companyId, employeeId);
+          allow delete: if false;
+
+          match /progress/{stepId} {
+            allow read: if isCompanyMember(companyId);
+            allow write: if canManageCompany(companyId)
+              || isEmployeeOwner(companyId, employeeId);
+          }
+        }
+
+        match /offboarding/{docId} {
+          allow read, write: if canManageCompany(companyId);
+        }
+
+        match /offboardingTasks/{taskId} {
+          allow read, write: if canManageCompany(companyId);
+        }
+      }
+
+      // -----------------------------------------------------
+      // INVITATIONS
+      // -----------------------------------------------------
+      match /invitations/{inviteId} {
+        allow get, list: if canManageCompany(companyId);
+
+        allow create: if canManageCompany(companyId);
+
+        allow update: if canManageCompany(companyId)
+          || (
+            signedIn()
+            && resource.data.status == 'pending'
+            && request.resource.data.status == 'accepted'
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'status',
+              'acceptedAt'
+            ])
+          );
+
+        allow delete: if false;
+      }
+
+      // -----------------------------------------------------
+      // COMPLIANCE
+      // -----------------------------------------------------
+      match /complianceModules/{moduleId} {
+        allow read: if isCompanyMember(companyId);
+        allow create, update: if canManageCompany(companyId);
+        allow delete: if false;
+      }
+
+      match /complianceAssignments/{assignmentId} {
+        allow read: if isCompanyMember(companyId);
+        allow create: if canManageCompany(companyId);
+
+        allow update: if canManageCompany(companyId)
+          || (
+            isCompanyMember(companyId)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'status',
+              'completedAt'
+            ])
+          );
+
+        allow delete: if false;
+      }
+
+      // -----------------------------------------------------
+      // ONBOARDING FLOWS
+      // -----------------------------------------------------
+      match /onboardingFlows/{flowId} {
+        allow read: if isCompanyMember(companyId);
+        allow create, update: if canManageCompany(companyId);
+        allow delete: if false;
+
+        match /checklistItems/{itemId} {
+          allow read: if isCompanyMember(companyId);
+          allow create, update: if canManageCompany(companyId);
+          allow delete: if false;
+        }
+      }
+
+      // -----------------------------------------------------
+      // COLLABORATION / MESSAGING
+      // -----------------------------------------------------
+      match /announcements/{announcementId} {
+        allow read: if isCompanyMember(companyId);
+        allow create: if canManageCompany(companyId);
+        allow update, delete: if false;
+      }
+
+      match /buddyAssignments/{assignmentId} {
+        allow read: if isCompanyMember(companyId);
+        allow create, update, delete: if canManageCompany(companyId);
+      }
+
+      match /conversations/{conversationId} {
+        allow get, list, create, update: if isCompanyMember(companyId);
+        allow delete: if false;
+
+        match /messages/{messageId} {
+          allow get, list, create: if isCompanyMember(companyId);
+          allow update, delete: if false;
+        }
+      }
+
+      // -----------------------------------------------------
+      // PRIMER
+      // -----------------------------------------------------
+      match /primerPlans/{planId} {
+        allow read, create, update: if isCompanyMember(companyId);
+        allow delete: if false;
+      }
+
+      match /primerGoals/{goalId} {
+        allow read, create, update: if isCompanyMember(companyId);
+        allow delete: if false;
+      }
+
+      // -----------------------------------------------------
+      // PAYROLL
+      // -----------------------------------------------------
+      match /payrollRuns/{runId} {
+        allow read: if isCompanyMember(companyId);
+        allow create, update: if canManageCompany(companyId);
+        allow delete: if false;
+
+        match /items/{itemId} {
+          allow read: if isCompanyMember(companyId);
+          allow create, update: if canManageCompany(companyId);
+          allow delete: if false;
+        }
+
+        match /payslips/{payslipId} {
+          allow read: if isCompanyMember(companyId);
+          allow create: if canManageCompany(companyId);
+          allow update, delete: if false;
+        }
+      }
+
+      // Older superadmin payroll views still use this collection.
+      match /payrolls/{payrollId} {
+        allow read: if isCompanyMember(companyId);
+        allow create, update: if canManageCompany(companyId);
+        allow delete: if false;
+      }
+
+      // -----------------------------------------------------
+      // AUDIT LOGS
+      // -----------------------------------------------------
+      match /auditLogs/{logId} {
+        allow read, create: if isSuperadmin();
+        allow update, delete: if false;
+      }
+    }
+
+    // =====================================================
+    // LEGACY ORGANIZATIONS
+    // =====================================================
+    match /organizations/{orgId} {
+      match /onboardingTasks/{taskId} {
+        allow read: if signedIn();
+        allow write: if false;
+      }
+
+      match /members/{memberId} {
+        allow read: if signedIn()
+          && exists(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid));
+
+        allow create, update, delete: if signedIn()
+          && get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.role == 'admin';
+      }
+
+      match /announcements/{announcementId} {
+        allow read: if signedIn()
+          && exists(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid));
+
+        allow create, update, delete: if signedIn()
+          && get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.role == 'admin';
+      }
+
+      match /buddies/{buddyId} {
+        allow read: if signedIn()
+          && exists(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid));
+
+        allow create, update, delete: if signedIn()
+          && (
+            get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.role == 'admin'
+            || request.resource.data.userId == request.auth.uid
+          );
+      }
+
+      match /complianceTrainings/{trainingId} {
+        allow read: if signedIn()
+          && exists(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid));
+
+        allow create, update, delete: if signedIn()
+          && get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.role == 'admin';
+
+        match /quizzes/{quizId} {
+          allow read: if signedIn()
+            && exists(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid));
+
+          allow create, update, delete: if signedIn()
+            && get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.role == 'admin';
+        }
+      }
+
+      match /complianceAssignments/{assignmentId} {
+        allow read: if signedIn()
+          && request.auth.uid == resource.data.userId;
+
+        allow create, update, delete: if signedIn()
+          && get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.role == 'admin';
+      }
+    }
+
+    // =====================================================
+    // COLLECTION GROUP SUPPORT
+    // =====================================================
+    match /{path=**}/onboardingFlows/{flowId} {
+      allow read: if isHrOrSuperadmin();
+    }
+
+    match /{path=**}/entries/{entryId} {
+      allow read: if isHrOrSuperadmin();
+    }
+
+    // =====================================================
+    // DENY BY DEFAULT
+    // =====================================================
     match /{document=**} {
       allow read, write: if false;
     }

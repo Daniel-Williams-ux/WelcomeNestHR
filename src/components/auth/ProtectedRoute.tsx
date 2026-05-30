@@ -10,7 +10,7 @@ export default function ProtectedRoute({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, loading, plan } = useUserAccess();
+  const { user, loading, plan, isTrialExpired } = useUserAccess();
   const router = useRouter();
 
   useEffect(() => {
@@ -29,11 +29,10 @@ export default function ProtectedRoute({
     );
   }
 
-  // FIXED CASE
-  const canAccessPremium = plan === 'Platinum' || plan === 'Trial';
+  const canAccessPremium = plan === 'Platinum' || (plan === 'Trial' && !isTrialExpired);
 
   if (!canAccessPremium) {
-    return <UpgradeToContinue plan={plan} />;
+    return <UpgradeToContinue plan={plan} isTrialExpired={isTrialExpired} />;
   }
 
   return <>{children}</>;

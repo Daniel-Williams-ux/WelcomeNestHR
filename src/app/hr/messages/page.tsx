@@ -25,8 +25,6 @@ export default function HRMessagesPage() {
 
     const uid = user.uid;
 
-    console.log('FINAL UID USED:', uid);
-
     const q = collection(db, 'companies', companyId, 'conversations');
 
     const unsub = onSnapshot(q, (snapshot) => {
@@ -34,8 +32,6 @@ export default function HRMessagesPage() {
 
       snapshot.forEach((doc) => {
         const convo = doc.data() as Conversation;
-
-        console.log('CHECKING:', convo.participants);
 
         const participants = Object.values(convo.participants || {}).map((p) =>
           String(p).trim(),
@@ -47,15 +43,6 @@ export default function HRMessagesPage() {
         const cleanUid = normalize(uid);
 
         const match = participants.some((p) => normalize(p) === cleanUid);
-        console.log('UID LENGTH:', cleanUid.length);
-        console.log(
-          'PARTICIPANTS LENGTHS:',
-          participants.map((p) => String(p).length),
-        );
-
-        console.log('UID:', uid);
-        console.log('PARTICIPANTS (normalized):', participants);
-        console.log('MATCH?', match);
 
         if (match) {
           data.push({
@@ -66,7 +53,6 @@ export default function HRMessagesPage() {
         }
       });
 
-      console.log('FINAL DATA:', data);
       setConversations(data);
     });
 
@@ -87,10 +73,11 @@ export default function HRMessagesPage() {
           const otherUser = convo.participants.find((p) => p !== user.uid);
 
           return (
-            <div
+            <button
+              type="button"
               key={convo.id}
               onClick={() => router.push(`/hr/messages/${otherUser}`)}
-              className="p-3 border rounded-lg cursor-pointer hover:bg-gray-50"
+              className="w-full p-3 border rounded-lg text-left cursor-pointer hover:bg-gray-50"
             >
               <p className="text-sm font-medium break-all">
                 {otherUser || 'Unknown user'}
@@ -98,7 +85,7 @@ export default function HRMessagesPage() {
               <p className="text-xs text-gray-500">
                 {convo.lastMessage || 'No messages yet'}
               </p>
-            </div>
+            </button>
           );
         })
       )}

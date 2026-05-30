@@ -27,18 +27,28 @@ export default function SuperAdminTopbar() {
       {/* RIGHT */}
       <div className="flex items-center gap-3">
         <button
+          type="button"
           onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+          aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
           className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition"
         >
-          {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+          {theme === 'dark' ? (
+            <Sun size={18} aria-hidden="true" />
+          ) : (
+            <Moon size={18} aria-hidden="true" />
+          )}
         </button>
 
-        <button className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition">
-          <Bell size={18} />
+        <button
+          type="button"
+          aria-label="View notifications"
+          className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+        >
+          <Bell size={18} aria-hidden="true" />
         </button>
 
         <div className="flex items-center gap-2 bg-[#FFB300] text-white px-3 py-1.5 rounded-full text-sm">
-          <UserCircle2 size={18} />
+          <UserCircle2 size={18} aria-hidden="true" />
           <span>Admin</span>
         </div>
       </div>

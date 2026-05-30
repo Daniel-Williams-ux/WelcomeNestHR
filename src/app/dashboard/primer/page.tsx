@@ -67,7 +67,6 @@ export default function PrimerPage() {
       if (loading || initialized) return;
 
       if (!user || !companyId || !role) {
-        console.log('Missing auth context', { user, companyId, role });
         return;
       }
 
@@ -90,7 +89,6 @@ export default function PrimerPage() {
           role: role,
         });
 
-        console.log('Primer result:', result);
         setPlanId(result.planId);
 
         const goalsRef = collection(db, `companies/${companyId}/primerGoals`);

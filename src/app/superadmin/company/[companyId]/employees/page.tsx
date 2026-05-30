@@ -111,7 +111,10 @@ export default function EmployeesPage() {
 
   useEffect(() => {
     const [field, dir] = sortValue.split(':');
-    setSortOption({ field, direction: dir });
+    setSortOption({
+      field: field === 'name' ? 'name' : 'createdAt',
+      direction: dir === 'asc' ? 'asc' : 'desc',
+    });
   }, [sortValue]);
 
   // Click outside export dropdown

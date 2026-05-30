@@ -1,120 +1,106 @@
 "use client";
 
-import React from "react";
 import Link from "next/link";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
+import { Brain, HeartHandshake, Lightbulb, ShieldCheck } from "lucide-react";
 
 const features = [
   {
-    icon: "🌱",
+    icon: HeartHandshake,
     title: "Human-Centric Design",
     description:
-      "Craft onboarding journeys that prioritize connection, clarity, and care—not just compliance.",
+      "Craft onboarding journeys that prioritize connection, clarity, and care, not just compliance.",
   },
   {
-    icon: "🧠",
+    icon: Brain,
     title: "Smart Meets Heart",
     description:
-      "Our AI adapts to each role and person, while emotional intelligence drives lasting engagement.",
+      "Adapt every journey to the role and person while keeping emotional intelligence at the center.",
   },
   {
-    icon: "🌐",
+    icon: Lightbulb,
     title: "Cultural Immersion",
     description:
-      "From rituals to values, help new hires feel part of the team before their first meeting.",
+      "Help new hires understand rituals, values, and team norms before their first meeting.",
   },
   {
-    icon: "💡",
+    icon: ShieldCheck,
     title: "Frictionless Compliance",
     description:
-      "Turn policies into experiences—gamified, personalized, and never a chore.",
+      "Turn policies into guided experiences that are clear, trackable, and easier to complete.",
   },
 ];
 
-// Framer motion variants
-const container = {
-  hidden: {},
-  show: {
-    transition: {
-      staggerChildren: 0.15,
-    },
-  },
-};
-
-const item = {
-  hidden: { opacity: 0, y: 20 },
-  show: { opacity: 1, y: 0 },
-};
-
 export default function WhyWelcomeNestHR() {
+  const reduceMotion = useReducedMotion();
+  const viewport = { once: true, amount: 0.25 };
+
   return (
     <section
       id="why"
-      className="py-24 bg-[#F9FAFB] dark:bg-[#121212] scroll-mt-24"
+      aria-labelledby="why-heading"
+      className="scroll-mt-24 bg-white py-20 text-slate-950 dark:bg-[#121212] dark:text-white sm:py-24"
     >
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
         <motion.div
-          initial="hidden"
-          whileInView="show"
-          viewport={{ once: true, amount: 0.4 }}
-          variants={item}
-          className="text-center"
+          initial={reduceMotion ? false : { opacity: 0, y: 16 }}
+          whileInView={reduceMotion ? undefined : { opacity: 1, y: 0 }}
+          transition={{ duration: 0.45 }}
+          viewport={viewport}
+          className="mx-auto max-w-3xl text-center"
         >
-          <h2 className="text-4xl sm:text-5xl font-bold text-[#00ACC1]">
-            Why WelcomeNestHR?
+          <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#FB8C00]">
+            Why WelcomeNestHR
+          </p>
+          <h2
+            id="why-heading"
+            className="mt-3 text-3xl font-black tracking-normal text-[#00ACC1] sm:text-4xl"
+          >
+            Onboarding should create momentum, not confusion.
           </h2>
-          <p className="mt-4 text-gray-700 dark:text-gray-300 text-lg max-w-2xl mx-auto">
-            More than onboarding—create belonging, from offer to impact.
+          <p className="mt-4 text-base leading-8 text-slate-600 dark:text-slate-300 sm:text-lg">
+            From offer to impact, WelcomeNestHR gives teams a calm,
+            measurable way to turn admin tasks into belonging.
           </p>
         </motion.div>
 
-        {/* Features */}
-        <motion.div
-          className="mt-16 grid gap-10 sm:grid-cols-2"
-          variants={container}
-          initial="hidden"
-          whileInView="show"
-          viewport={{ once: true, amount: 0.3 }}
-        >
-          {features.map(({ icon, title, description }) => (
-            <motion.div
+        <div className="mt-12 grid gap-5 sm:grid-cols-2">
+          {features.map(({ icon: Icon, title, description }, index) => (
+            <motion.article
               key={title}
-              variants={item}
-              className="flex items-start gap-4"
+              initial={reduceMotion ? false : { opacity: 0, y: 18 }}
+              whileInView={reduceMotion ? undefined : { opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.06, duration: 0.4 }}
+              viewport={viewport}
+              className="rounded-lg border border-slate-200 bg-[#F9FAFB] p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-cyan-200 hover:shadow-md dark:border-white/10 dark:bg-white/5"
             >
-              <div className="text-3xl">{icon}</div>
-              <div>
-                <h4 className="text-lg font-semibold text-[#00ACC1]">
-                  {title}
-                </h4>
-                <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
-                  {description}
-                </p>
+              <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-md bg-cyan-50 text-[#00ACC1] dark:bg-cyan-400/10 dark:text-[#26C6DA]">
+                <Icon className="h-5 w-5" aria-hidden="true" />
               </div>
-            </motion.div>
+              <h3 className="text-lg font-bold text-slate-950 dark:text-white">
+                {title}
+              </h3>
+              <p className="mt-2 text-sm leading-7 text-slate-600 dark:text-slate-300">
+                {description}
+              </p>
+            </motion.article>
           ))}
-        </motion.div>
+        </div>
 
-        {/* CTA */}
-        <motion.div
-          className="mt-16 flex flex-col sm:flex-row justify-center gap-6"
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2, duration: 0.6 }}
-          viewport={{ once: true }}
-        >
-          <Link href="/demo">
-            <button className="px-6 py-3 text-white bg-gradient-to-r from-[#FFB300] to-[#FB8C00] hover:brightness-90 transition rounded-lg text-sm font-semibold shadow">
-              Request a Demo
-            </button>
+        <div className="mt-12 flex flex-col justify-center gap-3 sm:flex-row">
+          <Link
+            href="/demo"
+            className="inline-flex min-h-12 items-center justify-center rounded-md bg-gradient-to-r from-[#FFB300] to-[#FB8C00] px-6 py-3 text-sm font-bold text-white shadow-md shadow-orange-500/20 transition hover:brightness-95"
+          >
+            Request a Demo
           </Link>
-          <Link href="#onboarding">
-            <button className="px-6 py-3 border border-[#00ACC1] text-[#00ACC1] font-medium rounded-lg hover:bg-[#E0F7FA] dark:hover:bg-gray-800 transition">
-              Explore the Platform
-            </button>
+          <Link
+            href="#onboarding"
+            className="inline-flex min-h-12 items-center justify-center rounded-md border border-[#00ACC1] px-6 py-3 text-sm font-bold text-[#008FA1] transition hover:bg-cyan-50 dark:text-[#26C6DA] dark:hover:bg-white/10"
+          >
+            Explore the Platform
           </Link>
-        </motion.div>
+        </div>
       </div>
     </section>
   );

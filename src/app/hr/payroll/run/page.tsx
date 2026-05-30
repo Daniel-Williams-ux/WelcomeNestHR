@@ -26,11 +26,13 @@ export default function HRPayrollRunPage() {
 
   useEffect(() => {
     if (!companyId || !runId) return;
+    const resolvedCompanyId = companyId;
+    const resolvedRunId = runId;
 
     async function loadPreview() {
       setLoading(true);
 
-      const runRef = doc(db, 'companies', companyId, 'payrollRuns', runId);
+      const runRef = doc(db, 'companies', resolvedCompanyId, 'payrollRuns', resolvedRunId);
       const runSnap = await getDoc(runRef);
 
       if (!runSnap.exists()) {
@@ -44,9 +46,9 @@ export default function HRPayrollRunPage() {
       const itemsRef = collection(
         db,
         'companies',
-        companyId,
+        resolvedCompanyId,
         'payrollRuns',
-        runId,
+        resolvedRunId,
         'items',
       );
       const itemsSnap = await getDocs(itemsRef);

@@ -3,13 +3,7 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { ShieldCheck } from 'lucide-react';
-import {
-  collection,
-  getDocs,
-  doc,
-  getDoc,
-  updateDoc,
-} from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useUserAccess } from '@/hooks/useUserAccess';
 import { query, where } from 'firebase/firestore';
@@ -20,61 +14,34 @@ interface ComplianceModule {
   description: string;
   type: 'policy' | 'training';
   status?: 'pending' | 'completed';
+  assignmentId: string;
 }
 
 export default function CompliancePage() {
-  const { user } = useUserAccess();
+  const { user, companyId } = useUserAccess();
+  const employeeId = user?.employeeId ?? null;
 
   const [modules, setModules] = useState<ComplianceModule[]>([]);
   const [loading, setLoading] = useState(true);
 
- useEffect(() => {
-   if (!user?.uid) return;
+  useEffect(() => {
+    let cancelled = false;
+
+   if (!user?.uid || !companyId || !employeeId) {
+     setLoading(false);
+     return;
+   }
 
    const init = async () => {
      try {
-       //  ALWAYS fetch fresh user doc
-       const userRef = doc(db, 'users', user.uid);
-       const userSnap = await getDoc(userRef);
-
-
-       const data = userSnap.data();
-
-       const companyId = data.companyId;
-      if (!companyId) {
-        setModules([]);
-        setLoading(false);
-        return;
-      }
-
-      //  get employeeId from employees collection (CORRECT SOURCE)
-      const empQuery = query(
-        collection(db, 'companies', companyId, 'employees'),
-        where('uid', '==', user.uid),
-      );
-
-       const empSnap = await getDocs(empQuery);
-       
-       if (empSnap.empty) {
-         console.log('⏳ employee not ready yet, retrying...');
-         return; // ❗ REMOVE setLoading(false)
-       }
-
-      if (empSnap.empty) {
-        setModules([]);
-        setLoading(false);
-        return;
-      }
-
-      const employeeId = empSnap.docs[0].id;
-
-      console.log('employeeId resolved:', employeeId);
-
        // =========================
        // FETCH ASSIGNMENTS
        // =========================
        const assignSnap = await getDocs(
-         collection(db, 'companies', companyId, 'complianceAssignments'),
+         query(
+           collection(db, 'companies', companyId, 'complianceAssignments'),
+           where('employeeId', '==', employeeId),
+         ),
        );
 
        const myAssignments = assignSnap.docs
@@ -88,16 +55,12 @@ export default function CompliancePage() {
              status: data.status,
            };
          })
-         .filter((a) => {
-           console.log('Comparing:', a.employeeId, employeeId);
-           return a.employeeId === String(employeeId);
-         });
-
-       console.log('Filtered assignments:', myAssignments);
 
        if (myAssignments.length === 0) {
-         setModules([]);
-         setLoading(false);
+         if (!cancelled) {
+           setModules([]);
+           setLoading(false);
+         }
          return;
        }
 
@@ -141,27 +104,25 @@ export default function CompliancePage() {
          })
          .filter(Boolean);
 
-       setModules(assignedModules);
+       if (!cancelled) setModules(assignedModules);
      } catch (err) {
        console.error('Compliance load error:', err);
      } finally {
-       setLoading(false);
+       if (!cancelled) setLoading(false);
      }
    };
 
    init();
- }, [user?.uid]);
+
+   return () => {
+     cancelled = true;
+   };
+ }, [user?.uid, companyId, employeeId]);
   
   const markAsCompleted = async (assignmentId: string) => {
-    if (!user?.uid) return;
+    if (!companyId) return;
 
     try {
-      const userRef = doc(db, 'users', user.uid);
-      const userSnap = await getDoc(userRef);
-
-      const companyId = userSnap.data()?.companyId;
-      if (!companyId) return;
-
       await updateDoc(
         doc(db, 'companies', companyId, 'complianceAssignments', assignmentId),
         {
@@ -245,6 +206,7 @@ export default function CompliancePage() {
                     </span>
                     {status === 'pending' && (
                       <button
+                        type="button"
                         onClick={() => markAsCompleted(m.assignmentId)}
                         className="text-xs px-2 py-1 rounded bg-[#00ACC1] text-white hover:opacity-90"
                       >

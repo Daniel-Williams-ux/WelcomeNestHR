@@ -151,7 +151,7 @@ export default function EditFlowPage() {
   async function addMilestone() {
     if (!companyId || !flowId) return;
 
-    const newItem = {
+    const newItem: Omit<ChecklistItem, 'id'> = {
       title: 'New Milestone',
       description: '',
       order: items.length,
@@ -204,7 +204,7 @@ export default function EditFlowPage() {
       );
     }
 
-    router.push(`/hr/onboarding/flows/${newFlowRef.id}/edit`);
+    router.push(`/hr/onboarding/${newFlowRef.id}/edit`);
   }
 
   if (loading) {

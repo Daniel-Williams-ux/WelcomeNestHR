@@ -11,7 +11,7 @@ import TestimonialsSlide from "@/components/TestimonialsSlider";
 
 export default function HomePage() {
   return (
-    <main className="pt-16">
+    <main id="main-content" className="pt-16">
       <HeroSection />
       <WhyWelcomeNestHR />
       <FeaturesOverview />

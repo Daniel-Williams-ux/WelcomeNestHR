@@ -8,7 +8,11 @@ export async function redirectToBillingPortal(idToken: string) {
   });
 
   if (!response.ok) {
-    throw new Error("Failed to create billing portal session");
+    const payload = await response.json().catch(() => null);
+
+    throw new Error(
+      payload?.error || "Failed to create billing portal session",
+    );
   }
 
   const { url } = await response.json();

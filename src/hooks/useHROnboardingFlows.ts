@@ -17,32 +17,56 @@ export function useHROnboardingFlows() {
 
   const [flows, setFlows] = useState<OnboardingFlow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
+
     if (!companyId) {
+      setFlows([]);
       setLoading(false);
       return;
     }
 
     async function load() {
-      const q = query(
-        collection(db, 'companies', companyId, 'onboardingFlows'),
-        orderBy('createdAt', 'desc'),
-      );
+      setLoading(true);
+      setError(null);
 
-      const snap = await getDocs(q);
+      try {
+        const q = query(
+          collection(db, 'companies', companyId!, 'onboardingFlows'),
+          orderBy('createdAt', 'desc'),
+        );
 
-      const data = snap.docs.map((doc) => ({
-        id: doc.id,
-        ...(doc.data() as Omit<OnboardingFlow, 'id'>),
-      }));
+        const snap = await getDocs(q);
 
-      setFlows(data);
-      setLoading(false);
+        if (cancelled) return;
+
+        const data = snap.docs.map((doc) => ({
+          id: doc.id,
+          ...(doc.data() as Omit<OnboardingFlow, 'id'>),
+        }));
+
+        setFlows(data);
+      } catch (err) {
+        if (!cancelled) {
+          console.error('[useHROnboardingFlows] failed:', err);
+          setFlows([]);
+          setError('Unable to load onboarding flows.');
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
     }
 
     load();
+
+    return () => {
+      cancelled = true;
+    };
   }, [companyId]);
 
-  return { flows, loading };
+  return { flows, loading, error };
 }

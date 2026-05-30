@@ -104,7 +104,7 @@ export default function EmployeeDetailClient({
 
     setSaving(true);
     try {
-      await startOffboarding(companyId, employee.id, 'hr');
+      await startOffboarding(companyId);
       router.push(`/hr/offboarding/${employee.id}`);
     } catch (e) {
       console.error(e);

@@ -132,7 +132,10 @@ export default function JourneyTimeline() {
 
         {/* ✅ Progress Tracker Component */}
         <div className="mb-12">
-          <ChecklistProgress currentStepIndex={expanded ?? 0} />
+          <ChecklistProgress
+            completionPercent={Math.round(((expanded ?? 0) + 1) / journeySteps.length * 100)}
+            currentPhaseIndex={expanded ?? 0}
+          />
         </div>
 
         <ol className="relative border-l-2 border-[#FFB300] dark:border-[#FB8C00] pl-6">

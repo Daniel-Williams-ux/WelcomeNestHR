@@ -1,18 +1,18 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { db, auth } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
 import {
   collection,
   addDoc,
   serverTimestamp,
   getDocs,
-  doc,
-  getDoc,
+  onSnapshot,
 } from 'firebase/firestore';
-import { onAuthStateChanged } from 'firebase/auth';
+import { useUserAccess } from '@/hooks/useUserAccess';
 
 export default function HRCompliancePage() {
+  const { companyId, loading: authLoading } = useUserAccess();
   
   const [showForm, setShowForm] = useState(false);
 
@@ -26,34 +26,9 @@ export default function HRCompliancePage() {
   const [assigningId, setAssigningId] = useState<string | null>(null);
   const [employeeId, setEmployeeId] = useState('');
 
-  const [companyId, setCompanyId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [assignments, setAssignments] = useState<any[]>([]);
-
-
-  // =========================
-  // FETCH COMPANY ID
-  // =========================
-  const fetchCompanyId = async () => {
-    const user = auth.currentUser;
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const userDoc = await getDoc(doc(db, 'users', user.uid));
-
-      if (userDoc.exists()) {
-        setCompanyId(userDoc.data().companyId);
-      }
-    } catch (error) {
-      console.error('Error fetching companyId:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // =========================
   // FETCH DATA
@@ -84,62 +59,46 @@ export default function HRCompliancePage() {
     );
   };
 
-  const fetchAssignments = async (companyId: string) => {
-    try {
-      const snapshot = await getDocs(
-        collection(db, 'companies', companyId, 'complianceAssignments'),
-      );
+  useEffect(() => {
+    if (authLoading) return;
 
-      const data = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-
-      setAssignments(data);
-    } catch (error) {
-      console.error('Error fetching assignments:', error);
+    if (!companyId) {
+      setLoading(false);
+      return;
     }
-  };
 
-  // =========================
-  // INIT
-  // =========================
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        setLoading(false);
-        return;
-      }
+    let cancelled = false;
 
-      try {
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
+    setLoading(true);
 
-        if (userDoc.exists()) {
-          setCompanyId(userDoc.data().companyId);
-        }
-      } catch (error) {
-        console.error('Error fetching companyId:', error);
-      } finally {
-        setLoading(false);
-      }
-    });
+    Promise.all([fetchModules(companyId), fetchEmployees(companyId)])
+      .catch((error) => {
+        console.error('Error loading compliance data:', error);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
 
-    return () => unsubscribe();
-  }, []);
+    const unsubscribe = onSnapshot(
+      collection(db, 'companies', companyId, 'complianceAssignments'),
+      (snapshot) => {
+        setAssignments(
+          snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          })),
+        );
+      },
+      (error) => {
+        console.error('Error listening to assignments:', error);
+      },
+    );
 
-  useEffect(() => {
-    if (!companyId) return;
-
-    fetchModules(companyId);
-    fetchEmployees(companyId);
-    fetchAssignments(companyId);
-
-    const interval = setInterval(() => {
-      fetchAssignments(companyId);
-    }, 3000); // refresh every 3s
-
-    return () => clearInterval(interval);
-  }, [companyId]);
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, [authLoading, companyId]);
 
   // =========================
   // SAVE MODULE
@@ -167,17 +126,20 @@ export default function HRCompliancePage() {
   // =========================
   const handleAssign = async (moduleId: string) => {
     if (!employeeId || !companyId) {
-      console.log('❌ Missing employeeId or companyId', {
-        employeeId,
-        companyId,
-      });
       return;
     }
 
-    console.log('🚀 Assign clicked', { moduleId, employeeId, companyId });
-
     try {
-      console.log('🚀 START ASSIGNMENT');
+      const alreadyAssigned = assignments.some(
+        (assignment) =>
+          assignment.employeeId === employeeId && assignment.moduleId === moduleId,
+      );
+
+      if (alreadyAssigned) {
+        setEmployeeId('');
+        setAssigningId(null);
+        return;
+      }
 
       const payload = {
         moduleId,
@@ -186,22 +148,16 @@ export default function HRCompliancePage() {
         createdAt: serverTimestamp(),
       };
 
-      console.log('📦 Payload:', payload);
-      console.log('🏢 companyId:', companyId);
-
-      const docRef = await addDoc(
+      await addDoc(
         collection(db, 'companies', companyId, 'complianceAssignments'),
         payload,
       );
 
-      console.log('✅ SUCCESS:', docRef.id);
-
       setEmployeeId('');
       setAssigningId(null);
 
-      fetchAssignments(companyId);
     } catch (error) {
-      console.error('❌ Assignment failed:', error);
+      console.error('Assignment failed:', error);
     }
   };
 
@@ -374,10 +330,8 @@ export default function HRCompliancePage() {
                 </select>
 
                 <button
-                  onClick={() => {
-                    console.log('🔥 BUTTON CLICKED');
-                    handleAssign(module.id);
-                  }}
+                  type="button"
+                  onClick={() => handleAssign(module.id)}
                   className="bg-[#00ACC1] text-white px-3 py-1 rounded text-xs"
                 >
                   Confirm Assign

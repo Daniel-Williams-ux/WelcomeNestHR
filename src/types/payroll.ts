@@ -48,8 +48,8 @@ export interface PayrollRun {
 
   frequency: PayrollFrequency;
 
-  periodStart: Timestamp;
-  periodEnd: Timestamp;
+  periodStart: Timestamp | null;
+  periodEnd: Timestamp | null;
 
   status: PayrollRunStatus;
 
@@ -81,11 +81,13 @@ export interface PayrollAdjustment {
 export interface EmployeePayrollItem {
   runId: string;
   employeeId: string;
+  employeeName: string;
 
   baseSalary: number;
+  payFrequency?: PayrollFrequency;
 
   allowances?: PayrollAdjustment[];
-  deductions?: PayrollAdjustment[];
+  deductions?: PayrollAdjustment[] | number;
 
   grossPay: number;
   netPay: number;
@@ -103,8 +105,8 @@ export interface Payslip {
   runId: string;
   companyId: string;
 
-  periodStart: Timestamp;
-  periodEnd: Timestamp;
+  periodStart: Timestamp | null;
+  periodEnd: Timestamp | null;
 
   currency: string;
 
