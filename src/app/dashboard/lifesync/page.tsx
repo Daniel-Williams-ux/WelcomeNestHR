@@ -9,10 +9,10 @@ export default function LifeSyncPage() {
     <div className="mx-auto max-w-7xl space-y-6">
         <header>
           <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100">
-            LifeSync Wellness & Mood
+            LifeSync Emotional Intelligence
           </h1>
           <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-            Track your daily mood and jot quick reflections.
+            Reflect on confidence, support, workload, and wellbeing with privacy controls.
           </p>
         </header>
 

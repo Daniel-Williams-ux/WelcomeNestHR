@@ -1,7 +1,21 @@
 "use client";
 
 type Props = {
-  plan: "free" | "trial" | "platinum" | "Trial" | "Platinum" | null;
+  plan:
+    | "free"
+    | "trial"
+    | "starter"
+    | "growth"
+    | "pro"
+    | "enterprise"
+    | "platinum"
+    | "Trial"
+    | "Starter"
+    | "Growth"
+    | "Pro"
+    | "Enterprise"
+    | "Platinum"
+    | null;
   trialEndsAt?: Date | null;
   isTrialExpired?: boolean;
   trialDaysLeft?: number | null;
@@ -24,7 +38,11 @@ export default function UpgradeToContinue({
         } left`;
       }
     }
-    if (normalizedPlan === "platinum") return "Platinum";
+    if (normalizedPlan === "starter") return "Starter";
+    if (normalizedPlan === "growth") return "Growth";
+    if (normalizedPlan === "pro") return "Pro";
+    if (normalizedPlan === "enterprise") return "Enterprise";
+    if (normalizedPlan === "platinum") return "Pro";
 
     return plan ?? "unknown";
   };
@@ -47,8 +65,7 @@ export default function UpgradeToContinue({
         </p>
       )}
       <p className="mt-1 text-gray-600 dark:text-gray-400">
-        Please upgrade to the{" "}
-        <span className="font-semibold">Platinum Plan</span> to continue.
+        Please choose a paid WelcomeNestHR plan to continue.
       </p>
     </div>
   );

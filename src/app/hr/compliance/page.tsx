@@ -11,6 +11,13 @@ import {
 } from 'firebase/firestore';
 import { useUserAccess } from '@/hooks/useUserAccess';
 
+type OnboardingProgress = {
+  completed: number;
+  total: number;
+  percent: number;
+  currentMilestone: string;
+};
+
 export default function HRCompliancePage() {
   const { companyId, loading: authLoading } = useUserAccess();
   
@@ -22,6 +29,9 @@ export default function HRCompliancePage() {
 
   const [modules, setModules] = useState<any[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
+  const [onboardingProgress, setOnboardingProgress] = useState<
+    Record<string, OnboardingProgress>
+  >({});
 
   const [assigningId, setAssigningId] = useState<string | null>(null);
   const [employeeId, setEmployeeId] = useState('');
@@ -51,12 +61,72 @@ export default function HRCompliancePage() {
       collection(db, 'companies', companyId, 'employees'),
     );
 
-    setEmployees(
-      snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      })),
+    const employeeRows: any[] = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+
+    setEmployees(employeeRows);
+
+    const progressEntries = await Promise.all(
+      employeeRows.map(async (employee) => {
+        const flowsSnap = await getDocs(
+          collection(
+            db,
+            'companies',
+            companyId,
+            'employees',
+            employee.id,
+            'onboardingFlows',
+          ),
+        );
+
+        if (flowsSnap.empty) {
+          return [
+            employee.id,
+            {
+              completed: 0,
+              total: 0,
+              percent: 0,
+              currentMilestone: 'Not assigned',
+            },
+          ] as const;
+        }
+
+        const primaryFlowId = employee.onboarding?.primaryFlowId;
+        const flowDoc =
+          flowsSnap.docs.find((doc) => doc.id === primaryFlowId) ??
+          flowsSnap.docs[0];
+        const flowData = flowDoc.data();
+        const milestones = flowData.milestones ?? [];
+        const tasks = milestones.flatMap((milestone: any) =>
+          (milestone.tasks ?? []).map((task: any) => ({
+            ...task,
+            milestoneTitle: milestone.title,
+          })),
+        );
+
+        const total = tasks.length;
+        const completed = tasks.filter((task: any) => task.completed === true).length;
+        const percent = total === 0 ? 0 : Math.round((completed / total) * 100);
+        const nextTask = tasks.find((task: any) => task.completed !== true);
+
+        return [
+          employee.id,
+          {
+            completed,
+            total,
+            percent,
+            currentMilestone:
+              total === 0
+                ? 'No tasks'
+                : nextTask?.milestoneTitle ?? 'Complete',
+          },
+        ] as const;
+      }),
     );
+
+    setOnboardingProgress(Object.fromEntries(progressEntries));
   };
 
   useEffect(() => {
@@ -223,8 +293,34 @@ export default function HRCompliancePage() {
   });
 
   const atRiskEmployees = employeeCompliance
-    .filter((ec) => ec.total > 0 && ec.percent < 100)
-    .sort((a, b) => a.percent - b.percent);
+    .map((ec) => {
+      const onboarding = onboardingProgress[ec.employee.id] ?? {
+        completed: 0,
+        total: 0,
+        percent: 0,
+        currentMilestone: 'Not assigned',
+      };
+
+      return {
+        ...ec,
+        onboarding,
+        hasComplianceRisk: ec.total > 0 && ec.percent < 100,
+        hasOnboardingRisk: onboarding.total > 0 && onboarding.percent < 100,
+      };
+    })
+    .filter((ec) => ec.hasComplianceRisk || ec.hasOnboardingRisk)
+    .sort((a, b) => {
+      const aLowest = Math.min(
+        a.hasComplianceRisk ? a.percent : 100,
+        a.hasOnboardingRisk ? a.onboarding.percent : 100,
+      );
+      const bLowest = Math.min(
+        b.hasComplianceRisk ? b.percent : 100,
+        b.hasOnboardingRisk ? b.onboarding.percent : 100,
+      );
+
+      return aLowest - bLowest;
+    });
 
   return (
     <div className="p-6 space-y-6">
@@ -350,6 +446,50 @@ export default function HRCompliancePage() {
 
         <div className="mt-4 space-y-2">
           <h3 className="text-sm font-medium text-gray-700">
+            Employee Onboarding Progress
+          </h3>
+
+          {employees.map((employee) => {
+            const progress = onboardingProgress[employee.id] ?? {
+              completed: 0,
+              total: 0,
+              percent: 0,
+              currentMilestone: 'Not assigned',
+            };
+
+            return (
+              <div
+                key={employee.id}
+                className="p-3 border rounded-lg bg-white flex justify-between items-center"
+              >
+                <div>
+                  <p className="text-sm font-medium">{employee.name}</p>
+                  <p className="text-xs text-gray-500">
+                    {progress.completed}/{progress.total} onboarding tasks ·{' '}
+                    {progress.currentMilestone}
+                  </p>
+                </div>
+
+                <span
+                  className={`text-xs px-2 py-1 rounded ${
+                    progress.total === 0
+                      ? 'bg-gray-100 text-gray-500'
+                      : progress.percent === 100
+                        ? 'bg-green-100 text-green-700'
+                        : progress.percent > 0
+                          ? 'bg-yellow-100 text-yellow-700'
+                          : 'bg-red-100 text-red-700'
+                  }`}
+                >
+                  {progress.total === 0 ? 'N/A' : `${progress.percent}%`}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="mt-4 space-y-2">
+          <h3 className="text-sm font-medium text-gray-700">
             Employee Compliance
           </h3>
 
@@ -389,24 +529,37 @@ export default function HRCompliancePage() {
 
           {atRiskEmployees.length === 0 ? (
             <p className="text-xs text-gray-500">
-              All employees are compliant 
+              No employees are currently at risk.
             </p>
           ) : (
             atRiskEmployees.map((ec) => (
               <div
                 key={ec.employee.id}
-                className="p-3 border rounded-lg bg-red-50 flex justify-between items-center"
+                className="p-3 border rounded-lg bg-red-50 flex justify-between gap-3 items-center"
               >
                 <div>
                   <p className="text-sm font-medium">{ec.employee.name}</p>
                   <p className="text-xs text-gray-500">
-                    {ec.completed}/{ec.total} modules
+                    {ec.hasOnboardingRisk &&
+                      `${ec.onboarding.completed}/${ec.onboarding.total} onboarding tasks`}
+                    {ec.hasOnboardingRisk && ec.hasComplianceRisk ? ' · ' : ''}
+                    {ec.hasComplianceRisk &&
+                      `${ec.completed}/${ec.total} compliance modules`}
                   </p>
                 </div>
 
-                <span className="text-xs px-2 py-1 rounded bg-red-100 text-red-700">
-                  {ec.percent}%
-                </span>
+                <div className="flex flex-wrap justify-end gap-2">
+                  {ec.hasOnboardingRisk && (
+                    <span className="text-xs px-2 py-1 rounded bg-red-100 text-red-700">
+                      Onboarding {ec.onboarding.percent}%
+                    </span>
+                  )}
+                  {ec.hasComplianceRisk && (
+                    <span className="text-xs px-2 py-1 rounded bg-red-100 text-red-700">
+                      Compliance {ec.percent}%
+                    </span>
+                  )}
+                </div>
               </div>
             ))
           )}

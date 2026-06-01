@@ -2,7 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import { useUserAccess } from '@/hooks/useUserAccess';
-import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
+import {
+  collection,
+  doc,
+  getDoc,
+  onSnapshot,
+  query,
+  orderBy,
+} from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
 import { getEmployeesForOrg } from '@/lib/collaborate';
@@ -10,6 +17,7 @@ import { getEmployeesForOrg } from '@/lib/collaborate';
 type Conversation = {
   id: string;
   participants: string[];
+  participantNames?: Record<string, string>;
   lastMessage?: string;
   updatedAt?: any;
 };
@@ -18,6 +26,7 @@ export default function MessagesPage() {
   const { companyId, user } = useUserAccess();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
+  const [userNames, setUserNames] = useState<Record<string, string>>({});
   const router = useRouter();
 
   useEffect(() => {
@@ -57,8 +66,24 @@ export default function MessagesPage() {
 
   const getName = (uid: string) => {
     const found = employees.find((emp) => emp.uid === uid);
-    return found?.name || 'Unknown User';
+    return found?.name || userNames[uid] || uid || 'Unknown User';
   };
+
+  useEffect(() => {
+    const missingUids = conversations
+      .flatMap((conversation) => conversation.participants || [])
+      .filter((uid) => uid && uid !== user?.uid && !userNames[uid]);
+
+    Array.from(new Set(missingUids)).forEach(async (uid) => {
+      const snap = await getDoc(doc(db, 'users', uid));
+      if (!snap.exists()) return;
+
+      const data = snap.data();
+      const name = data.fullName || data.displayName || data.name || data.email || uid;
+
+      setUserNames((prev) => ({ ...prev, [uid]: name }));
+    });
+  }, [conversations, user?.uid, userNames]);
 
   return (
     <div className="p-6 max-w-2xl">
@@ -72,7 +97,9 @@ export default function MessagesPage() {
         {conversations.map((c) => {
           const otherUser = c.participants.find((p) => p !== user.uid);
 
-          const name = getName(otherUser || '');
+          const name =
+            (otherUser && c.participantNames?.[otherUser]) ||
+            getName(otherUser || '');
 
           return (
             <div

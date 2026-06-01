@@ -6,6 +6,10 @@ import { collection, query, where, getDocs } from 'firebase/firestore';
 import { doc, updateDoc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuthContext } from '@/components/AuthProvider';
+import {
+  calculatePrimerGamification,
+  getPrimerPhaseCelebrations,
+} from '@/lib/primerGamification';
 
 export default function EmployeePrimerDetail() {
   const { companyId } = useAuthContext();
@@ -51,11 +55,19 @@ export default function EmployeePrimerDetail() {
         const goalsQuery = query(goalsRef, where('userId', '==', uid));
         const goalsSnap = await getDocs(goalsQuery);
 
-        const data = goalsSnap.docs.map((doc) => ({
+        const rawGoals = goalsSnap.docs.map((doc) => ({
           id: doc.id,
           ref: doc.ref, // REQUIRED
           ...doc.data(),
         }));
+        const data = Array.from(
+          new Map(
+            rawGoals.map((goal: any) => [
+              `${goal.phase}:${goal.title}`,
+              goal,
+            ]),
+          ).values(),
+        );
 
         setGoals(data);
       } catch (err) {
@@ -156,6 +168,8 @@ export default function EmployeePrimerDetail() {
 
     const allGoals = goals;
     const overallProgress = getProgress(allGoals);
+    const gamification = calculatePrimerGamification(allGoals);
+    const celebrations = getPrimerPhaseCelebrations(gamification.phaseProgress);
     const getRiskLevel = (progress: number) => {
       if (progress >= 70) return 'on-track';
       if (progress >= 40) return 'needs-attention';
@@ -187,6 +201,71 @@ export default function EmployeePrimerDetail() {
           </div>
 
           <p className="text-sm text-gray-500">{employee.title}</p>
+        </div>
+      )}
+
+      <div className="mb-6 grid gap-4 lg:grid-cols-3">
+        <div className="rounded-xl border bg-white p-4 shadow-sm">
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+            Primer Level
+          </p>
+          <p className="mt-2 text-2xl font-bold text-gray-900">
+            Level {gamification.level}
+          </p>
+          <p className="text-sm text-gray-500">{gamification.levelName}</p>
+        </div>
+
+        <div className="rounded-xl border bg-white p-4 shadow-sm">
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+            XP
+          </p>
+          <p className="mt-2 text-2xl font-bold text-[#FB8C00]">
+            {gamification.xp}
+          </p>
+          <p className="text-sm text-gray-500">
+            {gamification.completedGoals} of {gamification.totalGoals} goals complete
+          </p>
+        </div>
+
+        <div className="rounded-xl border bg-white p-4 shadow-sm">
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+            Badges
+          </p>
+          <p className="mt-2 text-2xl font-bold text-[#006e7f]">
+            {gamification.badges.length}
+          </p>
+          <p className="text-sm text-gray-500">Recognition earned</p>
+        </div>
+      </div>
+
+      {gamification.badges.length > 0 && (
+        <div className="mb-6 rounded-xl border bg-white p-4 shadow-sm">
+          <p className="text-sm font-semibold text-gray-900">Badges earned</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {gamification.badges.map((badge) => (
+              <span
+                key={badge.id}
+                title={badge.description}
+                className="rounded-full border border-cyan-100 bg-cyan-50 px-3 py-1 text-xs font-semibold text-[#006e7f]"
+              >
+                {badge.label}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {celebrations.length > 0 && (
+        <div className="mb-6 space-y-2">
+          {celebrations.map((celebration) => (
+            <div
+              key={celebration.phase}
+              className="rounded-xl border border-green-100 bg-green-50 p-4 text-sm text-green-900"
+            >
+              <p className="font-semibold">{celebration.title}</p>
+              <p className="mt-1">{celebration.message}</p>
+            </div>
+          ))}
         </div>
       )}
 

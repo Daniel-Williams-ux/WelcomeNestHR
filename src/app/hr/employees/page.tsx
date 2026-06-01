@@ -76,9 +76,12 @@ export default function HREmployeesPage() {
   }, [employees]);
 
   const buildInviteLink = (token: string) => {
+    const browserBaseUrl =
+      typeof window !== 'undefined' ? window.location.origin : '';
     const baseUrl =
-      process.env.NEXT_PUBLIC_BASE_URL ||
-      (typeof window !== 'undefined' ? window.location.origin : '');
+      process.env.NODE_ENV === 'development'
+        ? browserBaseUrl
+        : process.env.NEXT_PUBLIC_BASE_URL || browserBaseUrl;
 
     return `${baseUrl}/signup?token=${encodeURIComponent(token)}`;
   };

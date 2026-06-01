@@ -5,10 +5,12 @@ import { useRouter } from 'next/navigation';
 import { useUserAccess } from '@/hooks/useUserAccess';
 import { db } from '@/lib/firebase';
 import { collection, onSnapshot } from 'firebase/firestore';
+import { getEmployeesForOrg, type CollaborateEmployee } from '@/lib/collaborate';
 
 type Conversation = {
   id: string;
   participants: string[];
+  participantNames?: Record<string, string>;
   lastMessage?: string;
   updatedAt?: any;
 };
@@ -18,12 +20,17 @@ export default function HRMessagesPage() {
   const router = useRouter();
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [employees, setEmployees] = useState<CollaborateEmployee[]>([]);
 
   useEffect(() => {
     if (!companyId) return;
     if (!user || !user.uid) return;
 
     const uid = user.uid;
+
+    getEmployeesForOrg(companyId).then(setEmployees).catch((error) => {
+      console.error('Failed to load message recipients:', error);
+    });
 
     const q = collection(db, 'companies', companyId, 'conversations');
 
@@ -59,6 +66,11 @@ export default function HRMessagesPage() {
     return () => unsub();
   }, [companyId, user?.uid]);
 
+  const getDisplayName = (uid?: string) => {
+    if (!uid) return 'Unknown user';
+    return employees.find((employee) => employee.uid === uid)?.name || uid;
+  };
+
   return (
     <div className="p-4 space-y-3">
       <h1 className="text-xl font-semibold">Messages</h1>
@@ -71,6 +83,9 @@ export default function HRMessagesPage() {
       ) : (
         conversations.map((convo) => {
           const otherUser = convo.participants.find((p) => p !== user.uid);
+          const otherName =
+            (otherUser && convo.participantNames?.[otherUser]) ||
+            getDisplayName(otherUser);
 
           return (
             <button
@@ -79,15 +94,35 @@ export default function HRMessagesPage() {
               onClick={() => router.push(`/hr/messages/${otherUser}`)}
               className="w-full p-3 border rounded-lg text-left cursor-pointer hover:bg-gray-50"
             >
-              <p className="text-sm font-medium break-all">
-                {otherUser || 'Unknown user'}
-              </p>
+              <p className="text-sm font-medium break-all">{otherName}</p>
               <p className="text-xs text-gray-500">
                 {convo.lastMessage || 'No messages yet'}
               </p>
             </button>
           );
         })
+      )}
+
+      {user && companyId && (
+        <section className="pt-4">
+          <h2 className="mb-2 text-sm font-medium text-gray-700">
+            Start a conversation
+          </h2>
+          <div className="space-y-2">
+            {employees
+              .filter((employee) => employee.uid)
+              .map((employee) => (
+                <button
+                  type="button"
+                  key={employee.id}
+                  onClick={() => router.push(`/hr/messages/${employee.uid}`)}
+                  className="w-full rounded-lg border bg-white p-3 text-left text-sm hover:bg-gray-50"
+                >
+                  {employee.name || employee.email || employee.uid}
+                </button>
+              ))}
+          </div>
+        </section>
       )}
     </div>
   );

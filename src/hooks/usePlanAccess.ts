@@ -1,4 +1,5 @@
 import { useUserAccess } from "@/hooks/useUserAccess";
+import { isPaidAppPlan } from "@/lib/billingPlans";
 
 export function usePlanAccess() {
   const { plan, trialDaysLeft, isTrial, isPlatinum, isTrialExpired } =
@@ -6,11 +7,11 @@ export function usePlanAccess() {
 
   const trialActive = isTrial && !isTrialExpired;
 
-  const hasAccess = isPlatinum || trialActive;
+  const hasAccess = isPaidAppPlan(plan) || trialActive;
 
   return {
     canUseCoreModules: hasAccess,
-    canUseITAddon: isPlatinum, // Only Platinum users get IT Management
+    canUseITAddon: plan === "Pro" || plan === "Enterprise" || plan === "Platinum",
     isTrial,
     isPlatinum,
     isTrialExpired,

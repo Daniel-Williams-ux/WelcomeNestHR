@@ -1,37 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Sparkles, Lock } from "lucide-react";
-import { auth, db } from "@/lib/firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { DEFAULT_TRIAL_DAYS } from "@/lib/billingPlans";
+import { useUserAccess } from "@/hooks/useUserAccess";
 
 export default function UpgradePage() {
-  const [daysLeft, setDaysLeft] = useState<number | null>(null);
-
-  useEffect(() => {
-    const fetchTrialInfo = async () => {
-      const user = auth.currentUser;
-      if (!user) return;
-
-      const userRef = doc(db, "users", user.uid);
-      const snap = await getDoc(userRef);
-
-      if (snap.exists()) {
-        const data = snap.data();
-        if (data.trialEndsAt) {
-          const endDate = new Date(data.trialEndsAt);
-          const today = new Date();
-          const diffTime = endDate.getTime() - today.getTime();
-          const days = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-          setDaysLeft(days);
-        }
-      }
-    };
-
-    fetchTrialInfo();
-  }, []);
+  const { trialDaysLeft } = useUserAccess();
 
   return (
     <main className="min-h-screen bg-[#F9FAFB] flex flex-col items-center justify-center px-6 py-12 text-center">
@@ -40,9 +16,9 @@ export default function UpgradePage() {
           <Lock className="w-12 h-12 text-[#FB8C00]" />
         </div>
 
-        {daysLeft !== null && daysLeft > 0 ? (
+        {trialDaysLeft !== null && trialDaysLeft > 0 ? (
           <h1 className="text-3xl font-bold text-[#004d59] mb-4">
-            Trial – {daysLeft} day{daysLeft !== 1 ? "s" : ""} left
+            Trial – {trialDaysLeft} day{trialDaysLeft !== 1 ? "s" : ""} left
           </h1>
         ) : (
           <h1 className="text-3xl font-bold text-[#004d59] mb-4">
@@ -52,13 +28,14 @@ export default function UpgradePage() {
 
         <p className="text-gray-700 mb-6">
           To continue enjoying smart onboarding, LifeSync, and everything
-          WelcomeNestHR offers, upgrade to the <strong>Platinum Plan</strong>.
+          WelcomeNestHR offers, choose a paid company subscription. New
+          companies start with a <strong>{DEFAULT_TRIAL_DAYS}-day trial</strong>.
         </p>
 
         <div className="bg-gradient-to-r from-[#FFB300] to-[#FB8C00] p-6 rounded-2xl shadow-xl text-white">
           <h2 className="text-xl font-semibold mb-3 flex items-center gap-2">
             <Sparkles className="w-5 h-5" />
-            Platinum Benefits:
+            Paid Plan Benefits:
           </h2>
           <ul className="text-left list-disc list-inside space-y-2 text-white/90">
             <li>Smart, AI-powered onboarding</li>
@@ -66,17 +43,17 @@ export default function UpgradePage() {
             <li>Collaborate module & buddy match</li>
             <li>Policy & compliance automation</li>
             <li>Primer (90-day success plans)</li>
-            <li>Priority support</li>
+            <li>Plan options for small, growing, and larger teams</li>
           </ul>
         </div>
 
         <div className="mt-8">
-          <Link href="/billing">
+          <Link href="/hr/billing">
             <Button
               size="lg"
               className="bg-[#FB8C00] hover:bg-[#EF6C00] text-white px-8 text-lg"
             >
-              Upgrade to Platinum
+              Choose a plan
             </Button>
           </Link>
         </div>

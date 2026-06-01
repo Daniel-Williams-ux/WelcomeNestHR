@@ -84,13 +84,20 @@ export async function assignBuddy(
 export async function getEmployeeBuddy(companyId: string, employeeId: string) {
   const ref = collection(db, `companies/${companyId}/buddyAssignments`);
 
-  const snap = await getDocs(ref);
+  const q = query(
+    ref,
+    where('employeeId', '==', employeeId),
+    where('active', '==', true),
+    limit(1),
+  );
 
-  const match = snap.docs.find((d) => d.data().employeeId === employeeId);
+  const snap = await getDocs(q);
 
-  if (!match) {
+  if (snap.empty) {
     return null;
   }
+
+  const match = snap.docs[0];
 
   return {
     id: match.id,
@@ -168,6 +175,9 @@ export type CollaborateEmployee = {
   uid?: string;
   employeeId?: string;
   name?: string;
+  email?: string;
+  title?: string;
+  role?: string;
 };
 
 // Get employees for org (flat list)

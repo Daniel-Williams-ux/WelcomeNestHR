@@ -17,8 +17,17 @@ type HistoryEntry = {
   date: string;
   timestamp: number;
   mood?: number;
+  moodLabel?: string;
   note?: string;
   text?: string;
+  confidence?: number;
+  supported?: number;
+  connection?: number;
+  workload?: string;
+  visibility?: string;
+  followUpRequested?: boolean;
+  urgentSupport?: boolean;
+  category?: string;
 };
 
 export default function History() {
@@ -65,7 +74,15 @@ export default function History() {
           date: ts ? ts.toLocaleString() : 'Today',
           timestamp: ts ? ts.getTime() : Date.now(),
           mood: d.mood ? moodValueToNumber(d.mood) : 3,
+          moodLabel: d.mood || 'okay',
           note: d.note || '',
+          confidence: d.confidence,
+          supported: d.supported,
+          connection: d.connection,
+          workload: d.workload,
+          visibility: d.visibility,
+          followUpRequested: d.followUpRequested,
+          urgentSupport: d.urgentSupport,
         };
       });
       mergeAndSort(moodData, null);
@@ -82,6 +99,9 @@ export default function History() {
           date: ts ? ts.toLocaleString() : 'Today',
           timestamp: ts ? ts.getTime() : Date.now(),
           text: d.text || '',
+          category: d.category,
+          visibility: d.visibility,
+          followUpRequested: d.followUpRequested,
         };
       });
       mergeAndSort(null, wellnessData);
@@ -112,14 +132,21 @@ export default function History() {
 
   function moodValueToNumber(mood: string): number {
     switch (mood) {
+      case "energized":
       case "happy":
+      case "very_happy":
         return 5;
+      case "calm":
       case "grateful":
         return 4;
+      case "okay":
       case "neutral":
         return 3;
+      case "stressed":
       case "sad":
         return 2;
+      case "burned_out":
+        return 1;
       default:
         return 3;
     }
@@ -134,7 +161,7 @@ export default function History() {
         id="history-title"
         className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100"
       >
-        LifeSync History
+        Emotional Intelligence History
       </h2>
 
       <div className="mt-4 space-y-3">
@@ -160,9 +187,21 @@ export default function History() {
                 <span className="col-span-1 text-xs sm:text-sm text-gray-700 dark:text-gray-200">
                   {item.mood}/5
                 </span>
-                <span className="col-span-12 sm:col-span-2 text-[11px] sm:text-xs text-gray-500 dark:text-gray-400">
-                  Mood: {item.note}
-                </span>
+                <div className="col-span-12 text-[11px] sm:text-xs text-gray-500 dark:text-gray-400">
+                  <span className="font-medium capitalize text-gray-700 dark:text-gray-200">
+                    {item.moodLabel?.replace('_', ' ')}
+                  </span>
+                  {item.workload ? ` · workload: ${item.workload}` : ''}
+                  {typeof item.confidence === 'number'
+                    ? ` · confidence ${item.confidence}/5`
+                    : ''}
+                  {typeof item.supported === 'number'
+                    ? ` · support ${item.supported}/5`
+                    : ''}
+                  {item.followUpRequested ? ' · follow-up requested' : ''}
+                  {item.urgentSupport ? ' · urgent support' : ''}
+                  {item.note ? ` · ${item.note}` : ''}
+                </div>
               </div>
             );
           } else {
@@ -172,7 +211,15 @@ export default function History() {
                 className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-2"
               >
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {item.date} — Wellness Log
+                  {item.date} — {item.category || 'Wellness Log'}
+                </p>
+                <p className="text-xs font-medium text-[#006e7f] dark:text-cyan-300">
+                  {item.visibility === 'private'
+                    ? 'Private'
+                    : item.visibility === 'anonymous_hr'
+                      ? 'Trend only'
+                      : 'Shared with HR'}
+                  {item.followUpRequested ? ' · follow-up requested' : ''}
                 </p>
                 <p className="text-sm text-gray-800 dark:text-gray-200">
                   {item.text}

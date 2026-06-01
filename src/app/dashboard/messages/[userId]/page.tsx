@@ -12,6 +12,7 @@ import {
   onSnapshot,
   serverTimestamp,
   doc,
+  getDoc,
   setDoc,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -38,7 +39,19 @@ export default function MessagePage() {
       const employees = await getEmployeesForOrg(companyId);
       const found = employees.find((emp: any) => emp.uid === userId);
 
-      if (found) setUserData(found);
+      if (found) {
+        setUserData(found);
+        return;
+      }
+
+      const userSnap = await getDoc(doc(db, 'users', userId));
+      if (!userSnap.exists()) return;
+
+      const data = userSnap.data();
+      setUserData({
+        uid: userId,
+        name: data.fullName || data.displayName || data.name || data.email,
+      });
     };
 
     fetchUser();
@@ -73,7 +86,11 @@ export default function MessagePage() {
 
   // 🔥 send message
   const handleSend = async () => {
-    if (!input.trim() || !companyId || !conversationId) return;
+    if (!input.trim() || !companyId || !conversationId || !user?.uid) return;
+    const messageText = input.trim();
+    const senderName =
+      user.fullName || user.displayName || user.name || user.email || 'Employee';
+    const recipientName = userData?.name || userData?.email || 'HR';
 
     const convoRef = doc(
       db,
@@ -87,7 +104,13 @@ export default function MessagePage() {
     await setDoc(
       convoRef,
       {
-        participants: [user.uid, userId],
+        participants: [String(user.uid), String(userId)].sort(),
+        participantNames: {
+          [String(user.uid)]: senderName,
+          [String(userId)]: recipientName,
+        },
+        lastMessage: messageText,
+        lastSenderId: user.uid,
         updatedAt: serverTimestamp(),
       },
       { merge: true },
@@ -96,7 +119,7 @@ export default function MessagePage() {
     const messagesRef = collection(convoRef, 'messages');
 
     await addDoc(messagesRef, {
-      text: input,
+      text: messageText,
       senderId: user.uid,
       createdAt: serverTimestamp(),
     });

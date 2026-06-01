@@ -121,6 +121,7 @@ export async function markPayrollPaid(
       );
 
       const payslipId = `${runId}_${item.employeeId}`;
+      const employeeUserId = item.employeeUid ?? item.employeeId;
 
       // --- Company-scoped payslip ---
       const payslipRef = doc(
@@ -152,7 +153,7 @@ export async function markPayrollPaid(
       const userPayslipRef = doc(
         db,
         'users',
-        item.employeeId,
+        employeeUserId,
         'payslips',
         payslipId
       );
@@ -160,6 +161,10 @@ export async function markPayrollPaid(
       tx.set(userPayslipRef, {
         id: payslipId,
         ...payslip,
+      });
+
+      tx.update(itemSnap.ref, {
+        status: 'paid',
       });
     }
 
@@ -192,10 +197,13 @@ export async function snapshotPayrollRunEmployees(
   for (const docSnap of snapshot.docs) {
     const emp = docSnap.data();
 
+    const payFrequency = emp.payFrequency ?? 'monthly';
+
     if (
       emp.status?.toLowerCase() !== 'active' ||
       typeof emp.salary !== 'number' ||
-      emp.payFrequency !== frequency
+      emp.salary <= 0 ||
+      payFrequency !== frequency
     ) {
       continue;
     }
@@ -221,9 +229,10 @@ export async function snapshotPayrollRunEmployees(
     await setDoc(itemRef, {
       runId,
       employeeId: docSnap.id,
+      employeeUid: emp.uid ?? null,
       employeeName: emp.name,
-      baseSalary: emp.salary,
-      payFrequency: emp.payFrequency,
+      baseSalary: grossPay,
+      payFrequency,
       grossPay,
       deductions,
       netPay,

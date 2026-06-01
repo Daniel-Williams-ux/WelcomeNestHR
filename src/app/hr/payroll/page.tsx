@@ -1,7 +1,14 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
+import {
+  collection,
+  getDocs,
+  onSnapshot,
+  orderBy,
+  query,
+  where,
+} from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useUserAccess } from '@/hooks/useUserAccess';
 import { Button } from '@/components/ui/button';
@@ -26,6 +33,8 @@ export default function HRPayrollPage() {
   const [runs, setRuns] = useState<PayrollRun[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionRunId, setActionRunId] = useState<string | null>(null);
+  const [payrollReadyCount, setPayrollReadyCount] = useState(0);
+  const [payrollSetupIssue, setPayrollSetupIssue] = useState('');
 
   useEffect(() => {
     if (!companyId) {
@@ -43,6 +52,44 @@ export default function HRPayrollPage() {
       setLoading(false);
     });
   }, [companyId]);
+
+  useEffect(() => {
+    if (!companyId) return;
+
+    async function loadPayrollReadiness() {
+      const snap = await getDocs(
+        query(
+          collection(db, 'companies', companyId, 'employees'),
+          where('status', '==', 'Active'),
+        ),
+      );
+
+      const activeEmployees = snap.docs.map((doc) => doc.data());
+      const monthlyEmployees = activeEmployees.filter(
+        (employee) => (employee.payFrequency ?? 'monthly') === 'monthly',
+      );
+      const readyEmployees = monthlyEmployees.filter(
+        (employee) => typeof employee.salary === 'number' && employee.salary > 0,
+      );
+
+      setPayrollReadyCount(readyEmployees.length);
+
+      if (monthlyEmployees.length === 0) {
+        setPayrollSetupIssue('No active monthly employees found.');
+      } else if (readyEmployees.length === 0) {
+        setPayrollSetupIssue(
+          'Active monthly employees need salary values before payroll can be created.',
+        );
+      } else {
+        setPayrollSetupIssue('');
+      }
+    }
+
+    loadPayrollReadiness().catch((error) => {
+      console.error('Payroll readiness check failed:', error);
+      setPayrollSetupIssue('Could not verify payroll readiness.');
+    });
+  }, [companyId, runs]);
 
   if (authLoading) return null;
 
@@ -104,9 +151,9 @@ export default function HRPayrollPage() {
 
         <Button
           className="bg-[#00ACC1] text-white"
-          disabled={!!activeRun}
+          disabled={!!activeRun || payrollReadyCount === 0}
           onClick={async () => {
-            if (!companyId || activeRun) return;
+            if (!companyId || activeRun || payrollReadyCount === 0) return;
 
             const runId = crypto.randomUUID();
 
@@ -130,6 +177,15 @@ export default function HRPayrollPage() {
           Create Payroll
         </Button>
       </div>
+
+      {payrollSetupIssue && (
+        <Card>
+          <CardContent className="p-4 text-sm text-amber-800">
+            {payrollSetupIssue} Open HR → Employees → employee profile → Payroll
+            Settings, then enter the employee&apos;s real salary.
+          </CardContent>
+        </Card>
+      )}
 
       {loading ? (
         <Skeleton className="h-24 w-full" />

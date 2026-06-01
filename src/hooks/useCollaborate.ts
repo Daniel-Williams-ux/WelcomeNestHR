@@ -40,7 +40,9 @@ export function useCollaborate(companyId: string, employeeId: string) {
       const buddyId = (buddyRef as any)?.buddyId;
 
       if (buddyId) {
-       resolvedBuddy = employees.find((emp) => emp.uid === buddyId);
+        resolvedBuddy = employees.find(
+          (emp) => emp.id === buddyId || emp.uid === buddyId,
+        );
       }
 
       setState({

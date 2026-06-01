@@ -28,54 +28,63 @@ function isExpired(expiresAt: unknown) {
 }
 
 export async function GET(request: NextRequest) {
-  const token = request.nextUrl.searchParams.get('token')?.trim();
+  try {
+    const token = request.nextUrl.searchParams.get('token')?.trim();
 
-  if (!token) {
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Invitation token is required.' },
+        { status: 400 },
+      );
+    }
+
+    const inviteSnap = await db
+      .collectionGroup('invitations')
+      .where('token', '==', token)
+      .limit(1)
+      .get();
+
+    if (inviteSnap.empty) {
+      return NextResponse.json(
+        { error: 'This invitation link is invalid.' },
+        { status: 404 },
+      );
+    }
+
+    const inviteDoc = inviteSnap.docs[0];
+    const invite = inviteDoc.data();
+    const companyRef = inviteDoc.ref.parent.parent;
+    const companySnap = companyRef ? await companyRef.get() : null;
+
+    if (!companyRef || !companySnap?.exists) {
+      return NextResponse.json(
+        { error: 'This invitation is not connected to a valid company.' },
+        { status: 404 },
+      );
+    }
+
+    if (invite.status !== 'pending' || isExpired(invite.expiresAt)) {
+      return NextResponse.json(
+        { error: 'This invitation has expired or already been used.' },
+        { status: 410 },
+      );
+    }
+
+    const company = companySnap.data() ?? {};
+
+    return NextResponse.json({
+      email: invite.email ?? '',
+      role: invite.role ?? 'employee',
+      companyId: companyRef.id,
+      companyName: company.name ?? 'your company',
+      expiresAt: toDate(invite.expiresAt)?.toISOString() ?? null,
+    });
+  } catch (error) {
+    console.error('Invitation validation failed:', error);
+
     return NextResponse.json(
-      { error: 'Invitation token is required.' },
-      { status: 400 },
+      { error: 'We could not validate this invitation. Please try again.' },
+      { status: 500 },
     );
   }
-
-  const inviteSnap = await db
-    .collectionGroup('invitations')
-    .where('token', '==', token)
-    .limit(1)
-    .get();
-
-  if (inviteSnap.empty) {
-    return NextResponse.json(
-      { error: 'This invitation link is invalid.' },
-      { status: 404 },
-    );
-  }
-
-  const inviteDoc = inviteSnap.docs[0];
-  const invite = inviteDoc.data();
-  const companyRef = inviteDoc.ref.parent.parent;
-  const companySnap = companyRef ? await companyRef.get() : null;
-
-  if (!companyRef || !companySnap?.exists) {
-    return NextResponse.json(
-      { error: 'This invitation is not connected to a valid company.' },
-      { status: 404 },
-    );
-  }
-
-  if (invite.status !== 'pending' || isExpired(invite.expiresAt)) {
-    return NextResponse.json(
-      { error: 'This invitation has expired or already been used.' },
-      { status: 410 },
-    );
-  }
-
-  const company = companySnap.data() ?? {};
-
-  return NextResponse.json({
-    email: invite.email ?? '',
-    role: invite.role ?? 'employee',
-    companyId: companyRef.id,
-    companyName: company.name ?? 'your company',
-    expiresAt: toDate(invite.expiresAt)?.toISOString() ?? null,
-  });
 }

@@ -2,16 +2,18 @@
 
 import { useEffect, useState } from 'react';
 import {
-  collectionGroup,
+  collection,
   query,
-  orderBy,
   limit,
   onSnapshot,
-  doc,
-  getDoc,
+  orderBy,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useUserAccess } from '@/hooks/useUserAccess';
+
+type TimestampLike = {
+  toDate?: () => Date;
+};
 
 type MoodEntry = {
   id: string;
@@ -19,133 +21,249 @@ type MoodEntry = {
   note?: string;
   userId?: string;
   employeeName?: string;
-  createdAt?: any;
+  confidence?: number;
+  supported?: number;
+  connection?: number;
+  workload?: string;
+  visibility?: string;
+  followUpRequested?: boolean;
+  urgentSupport?: boolean;
+  createdAt?: TimestampLike;
 };
 
 type WellnessEntry = {
   id: string;
   text: string;
-  createdAt?: any;
+  category?: string;
+  visibility?: string;
+  followUpRequested?: boolean;
+  userId?: string;
+  employeeName?: string;
+  createdAt?: TimestampLike;
 };
 
+type CompanyLifeSyncEntry = {
+  id: string;
+  entryType?: 'mood' | 'wellness';
+  mood?: string;
+  note?: string;
+  text?: string;
+  category?: string;
+  userId?: string;
+  employeeName?: string | null;
+  confidence?: number;
+  supported?: number;
+  connection?: number;
+  workload?: string;
+  visibility?: string;
+  followUpRequested?: boolean;
+  urgentSupport?: boolean;
+  createdAt?: TimestampLike;
+  updatedAt?: TimestampLike;
+};
+
+function moodScore(mood: string) {
+  switch (mood) {
+    case 'energized':
+    case 'very_happy':
+    case 'happy':
+      return 5;
+    case 'calm':
+    case 'grateful':
+      return 4;
+    case 'okay':
+    case 'neutral':
+      return 3;
+    case 'sad':
+    case 'stressed':
+      return 2;
+    case 'burned_out':
+      return 1;
+    default:
+      return 3;
+  }
+}
+
+function formatDate(value?: TimestampLike) {
+  const date = value?.toDate?.();
+  return date ? date.toLocaleString() : 'Recently';
+}
+
+function displayName(entry: { visibility?: string; employeeName?: string }) {
+  return entry.visibility === 'anonymous_hr'
+    ? 'Anonymous employee'
+    : entry.employeeName || 'Employee';
+}
+
 export default function HRLifeSyncPage() {
-  const { user } = useUserAccess();
+  const { user, companyId } = useUserAccess();
 
   const [moods, setMoods] = useState<MoodEntry[]>([]);
   const [wellness, setWellness] = useState<WellnessEntry[]>([]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !companyId) return;
 
-    // Query ALL entries across users
-    const entriesQuery = query(
-      collectionGroup(db, 'entries'),
-      orderBy('createdAt', 'desc'),
-      limit(50),
+    const feedQuery = query(
+      collection(db, 'companies', companyId, 'lifesyncEntries'),
+      orderBy('updatedAt', 'desc'),
+      limit(100),
     );
 
-      const userCache: Record<string, string> = {};
-
-    const unsubscribe = onSnapshot(entriesQuery, (snap) => {
-      const moodData: MoodEntry[] = [];
-      const wellnessData: WellnessEntry[] = [];
-
-      snap.docs.forEach((entryDoc) => {
-        const data = entryDoc.data() as any;
-        const path = entryDoc.ref.path;
-
-        if (data.mood) {
-          let employeeName = 'Employee';
-
-          if (data.userId && userCache[data.userId]) {
-            employeeName = userCache[data.userId];
-          }
-
-          const entry: MoodEntry = {
+    const unsubscribe = onSnapshot(feedQuery, (snap) => {
+      const entries = snap.docs.map(
+        (entryDoc) =>
+          ({
             id: entryDoc.id,
-            mood: data.mood,
-            note: data.note,
-            userId: data.userId,
-            employeeName,
-            createdAt: data.createdAt,
-          };
+            ...entryDoc.data(),
+          }) as CompanyLifeSyncEntry,
+      );
 
-          moodData.push(entry);
+      setMoods(
+        entries
+          .filter((entry) => entry.entryType === 'mood' && entry.mood)
+          .map((entry) => ({
+            id: entry.id,
+            mood: String(entry.mood),
+            note: entry.note,
+            userId: entry.userId,
+            employeeName: entry.employeeName ?? undefined,
+            confidence: entry.confidence,
+            supported: entry.supported,
+            connection: entry.connection,
+            workload: entry.workload,
+            visibility: entry.visibility,
+            followUpRequested: entry.followUpRequested,
+            urgentSupport: entry.urgentSupport,
+            createdAt: entry.updatedAt ?? entry.createdAt,
+          })),
+      );
 
-          if (data.userId && !userCache[data.userId]) {
-            const userRef = doc(db, 'users', data.userId);
-
-            getDoc(userRef).then((userSnap) => {
-              if (!userSnap.exists()) return;
-
-              const name =
-                userSnap.data().fullName ||
-                userSnap.data().displayName ||
-                userSnap.data().name ||
-                'Employee';
-
-              userCache[data.userId] = name;
-
-              setMoods((prev) =>
-                prev.map((m) =>
-                  m.userId === data.userId ? { ...m, employeeName: name } : m,
-                ),
-              );
-            });
-          }
-        }
-
-        if (path.includes('wellnessLog')) {
-          wellnessData.push({
-            id: entryDoc.id,
-            text: data.text,
-            createdAt: data.createdAt,
-          });
-        }
-      });
-      setMoods(moodData.slice(0, 5));
-      setWellness(wellnessData.slice(0, 5));
+      setWellness(
+        entries
+          .filter((entry) => entry.entryType === 'wellness')
+          .map((entry) => ({
+            id: entry.id,
+            text: String(entry.text ?? ''),
+            category: entry.category,
+            visibility: entry.visibility,
+            followUpRequested: entry.followUpRequested,
+            userId: entry.userId,
+            employeeName: entry.employeeName ?? undefined,
+            createdAt: entry.updatedAt ?? entry.createdAt,
+          })),
+      );
     });
 
-    return () => unsubscribe();
-  }, [user]);
+    return () => {
+      unsubscribe();
+    };
+  }, [companyId, user]);
+
+  const averageMood =
+    moods.length === 0
+      ? 0
+      : moods.reduce((sum, entry) => sum + moodScore(entry.mood), 0) / moods.length;
+  const lowMoodEntries = moods.filter(
+    (entry) =>
+      moodScore(entry.mood) <= 2 ||
+      entry.workload === 'overloaded' ||
+      entry.urgentSupport,
+  );
+  const supportRequests = [
+    ...moods
+      .filter((entry) => entry.followUpRequested || entry.urgentSupport)
+      .map((entry) => ({ type: 'mood' as const, ...entry })),
+    ...wellness
+      .filter((entry) => entry.followUpRequested)
+      .map((entry) => ({ type: 'reflection' as const, ...entry })),
+  ].slice(0, 8);
+  const trendSummary =
+    moods.length === 0
+      ? 'No emotional intelligence signals have been submitted yet.'
+      : averageMood >= 4
+        ? 'Recent sentiment is healthy. Keep reinforcing connection, clarity, and recognition.'
+        : averageMood >= 3
+          ? 'Sentiment is mixed. Watch workload, confidence, and repeated support requests.'
+          : 'Sentiment needs attention. Prioritize follow-up with employees showing stress or burnout signals.';
 
   return (
     <div className="p-6 space-y-6">
       {/* Page Header */}
       <div>
         <h1 className="text-2xl font-semibold text-gray-900">
-          LifeSync Insights
+          Emotional Intelligence Center
         </h1>
         <p className="text-gray-600 mt-1">
-          HR wellness overview and recent employee activity.
+          Track wellbeing trends, support requests, and early people-risk signals.
         </p>
       </div>
 
       {/* Summary cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white border rounded-xl p-4 shadow-sm">
-          <p className="text-sm text-gray-500">Recent Mood Check-ins</p>
-          <p className="text-2xl font-semibold">{moods.length}</p>
-        </div>
-
-        <div className="bg-white border rounded-xl p-4 shadow-sm">
-          <p className="text-sm text-gray-500">Recent Wellness Logs</p>
-          <p className="text-2xl font-semibold">{wellness.length}</p>
-        </div>
-
-        <div className="bg-white border rounded-xl p-4 shadow-sm">
-          <p className="text-sm text-gray-500">LifeSync Activity</p>
+          <p className="text-sm text-gray-500">Average Sentiment</p>
           <p className="text-2xl font-semibold">
-            {moods.length + wellness.length}
+            {moods.length === 0 ? 'N/A' : `${averageMood.toFixed(1)}/5`}
           </p>
+          <p className="mt-1 text-xs text-gray-500">{moods.length} recent check-ins</p>
+        </div>
+
+        <div className="bg-white border rounded-xl p-4 shadow-sm">
+          <p className="text-sm text-gray-500">Support Requests</p>
+          <p className="text-2xl font-semibold">{supportRequests.length}</p>
+          <p className="mt-1 text-xs text-gray-500">Follow-up or urgent support</p>
+        </div>
+
+        <div className="bg-white border rounded-xl p-4 shadow-sm">
+          <p className="text-sm text-gray-500">At-Risk Signals</p>
+          <p className="text-2xl font-semibold">{lowMoodEntries.length}</p>
+          <p className="mt-1 text-xs text-gray-500">Stress, burnout, or overload</p>
         </div>
       </div>
+
+      <div className="rounded-xl border border-cyan-100 bg-cyan-50 p-4 shadow-sm">
+        <p className="text-sm font-semibold text-[#006e7f]">People insight summary</p>
+        <p className="mt-1 text-sm text-gray-700">{trendSummary}</p>
+      </div>
+
+      {supportRequests.length > 0 && (
+        <div className="bg-white border rounded-xl p-4 shadow-sm">
+          <h2 className="font-semibold text-gray-900 mb-3">HR Follow-up Queue</h2>
+          <div className="space-y-2">
+            {supportRequests.map((entry) => (
+              <div
+                key={`${entry.type}-${entry.id}`}
+                className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="font-medium text-amber-950">
+                    {displayName(entry)}
+                    {'urgentSupport' in entry && entry.urgentSupport ? ' · Urgent' : ''}
+                  </p>
+                  <span className="text-xs text-amber-800">{formatDate(entry.createdAt)}</span>
+                </div>
+                <p className="mt-1 text-amber-900">
+                  {entry.type === 'mood'
+                    ? `${entry.mood.replace('_', ' ')} check-in`
+                    : `${entry.category || 'reflection'} entry`}
+                </p>
+                {entry.visibility !== 'anonymous_hr' && 'note' in entry && entry.note && (
+                  <p className="mt-1 text-gray-700">{entry.note}</p>
+                )}
+                {entry.visibility !== 'anonymous_hr' && 'text' in entry && entry.text && (
+                  <p className="mt-1 text-gray-700">{entry.text}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Recent mood entries */}
       <div className="bg-white border rounded-xl p-4 shadow-sm">
         <h2 className="font-semibold text-gray-900 mb-3">
-          Recent Mood Check-ins
+          Recent Emotional Check-ins
         </h2>
 
         {moods.length === 0 && (
@@ -159,9 +277,19 @@ export default function HRLifeSyncPage() {
               className="border rounded-md p-3 text-sm bg-gray-50"
             >
               <p className="font-medium capitalize">
-                {m.employeeName || 'Employee'} — {m.mood}
+                {displayName(m)} — {m.mood.replace('_', ' ')}
               </p>
-              {m.note && <p className="text-gray-600 mt-1">{m.note}</p>}
+              <p className="mt-1 text-xs text-gray-500">
+                Score {moodScore(m.mood)}/5
+                {typeof m.confidence === 'number' ? ` · confidence ${m.confidence}/5` : ''}
+                {typeof m.supported === 'number' ? ` · support ${m.supported}/5` : ''}
+                {typeof m.connection === 'number' ? ` · connection ${m.connection}/5` : ''}
+                {m.workload ? ` · workload ${m.workload}` : ''}
+                {m.followUpRequested ? ' · follow-up requested' : ''}
+              </p>
+              {m.visibility !== 'anonymous_hr' && m.note && (
+                <p className="text-gray-600 mt-1">{m.note}</p>
+              )}
             </div>
           ))}
         </div>
@@ -183,7 +311,18 @@ export default function HRLifeSyncPage() {
               key={w.id}
               className="border rounded-md p-3 text-sm bg-gray-50"
             >
-              {w.text}
+              <p className="font-medium">{displayName(w)}</p>
+              <p className="text-xs capitalize text-gray-500">
+                {w.category || 'reflection'}
+                {w.followUpRequested ? ' · follow-up requested' : ''}
+              </p>
+              {w.visibility === 'anonymous_hr' ? (
+                <p className="mt-1 text-gray-600">
+                  Shared as a trend-only reflection.
+                </p>
+              ) : (
+                <p className="mt-1 text-gray-700">{w.text}</p>
+              )}
             </div>
           ))}
         </div>

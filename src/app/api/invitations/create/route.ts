@@ -93,10 +93,12 @@ export async function POST(request: NextRequest) {
 
   await batch.commit();
 
+  const configuredBaseUrl = process.env.NEXT_PUBLIC_BASE_URL;
+  const requestBaseUrl = request.headers.get('origin') || request.nextUrl.origin;
   const baseUrl =
-    process.env.NEXT_PUBLIC_BASE_URL ||
-    request.headers.get('origin') ||
-    request.nextUrl.origin;
+    process.env.NODE_ENV === 'development'
+      ? requestBaseUrl
+      : configuredBaseUrl || requestBaseUrl;
 
   return NextResponse.json({
     link: `${baseUrl}/signup?token=${token}`,

@@ -28,6 +28,47 @@ function getStripe() {
   });
 }
 
+const PRICE_TO_PLAN: Record<string, { plan: string; billingPlanId: string }> = {
+  ...(process.env.STRIPE_STARTER_PRICE_ID
+    ? {
+        [process.env.STRIPE_STARTER_PRICE_ID]: {
+          plan: 'Starter',
+          billingPlanId: 'starter',
+        },
+      }
+    : {}),
+  ...(process.env.STRIPE_GROWTH_PRICE_ID
+    ? {
+        [process.env.STRIPE_GROWTH_PRICE_ID]: {
+          plan: 'Growth',
+          billingPlanId: 'growth',
+        },
+      }
+    : {}),
+  ...(process.env.STRIPE_PRO_PRICE_ID
+    ? {
+        [process.env.STRIPE_PRO_PRICE_ID]: {
+          plan: 'Pro',
+          billingPlanId: 'pro',
+        },
+      }
+    : {}),
+  ...(process.env.STRIPE_PLATINUM_PRICE_ID
+    ? {
+        [process.env.STRIPE_PLATINUM_PRICE_ID]: {
+          plan: 'Pro',
+          billingPlanId: 'pro',
+        },
+      }
+    : {}),
+};
+
+function timestampFromUnix(seconds?: number | null) {
+  return seconds
+    ? admin.firestore.Timestamp.fromMillis(seconds * 1000)
+    : null;
+}
+
 /* ----------------------------------------
    DEFAULT ONBOARDING TASKS
 ----------------------------------------- */
@@ -235,23 +276,73 @@ app.post('/handleStripeWebhook', async (req: Request, res: Response) => {
       const subscription = event.data.object as Stripe.Subscription;
       const stripeCustomerId = subscription.customer as string;
       const subscriptionStatus = subscription.status;
-      const priceId = subscription.items?.data?.[0]?.price?.id;
+      const price = subscription.items?.data?.[0]?.price;
+      const priceId = price?.id;
+      const quantity = subscription.items?.data?.[0]?.quantity ?? 1;
+      const mappedPlan = priceId ? PRICE_TO_PLAN[priceId] : null;
+      const metadataPlan = subscription.metadata?.plan;
+      const metadataBillingPlanId = subscription.metadata?.billingPlanId;
+      const resolvedPlan =
+        mappedPlan?.plan ??
+        (metadataPlan === 'Starter' ||
+        metadataPlan === 'Growth' ||
+        metadataPlan === 'Pro'
+          ? metadataPlan
+          : null);
+      const resolvedBillingPlanId =
+        mappedPlan?.billingPlanId ?? metadataBillingPlanId ?? null;
+      const isLiveSubscription =
+        subscriptionStatus === 'active' || subscriptionStatus === 'trialing';
+      const companyId = subscription.metadata?.companyId;
+      const companyUpdate = {
+        plan: isLiveSubscription && resolvedPlan ? resolvedPlan : null,
+        billingPlanId: isLiveSubscription ? resolvedBillingPlanId : null,
+        subscriptionStatus,
+        stripeCustomerId,
+        stripeSubscriptionId: subscription.id,
+        stripePriceId: priceId ?? null,
+        billableSeats: quantity,
+        trialEndsAt: timestampFromUnix(subscription.trial_end),
+        currentPeriodEnd: timestampFromUnix(
+          (subscription as any).current_period_end
+        ),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      };
 
-      let plan = 'free';
-      if (priceId === 'price_1RhCvxD1HsOrcNPUUDdvsuV9') {
-        plan = 'platinum';
+      if (companyId) {
+        await db.collection('companies').doc(companyId).set(companyUpdate, {
+          merge: true,
+        });
+        logger.info(`Updated company billing for ${companyId}`);
+      } else {
+        const companyQuery = await db
+          .collection('companies')
+          .where('stripeCustomerId', '==', stripeCustomerId)
+          .limit(1)
+          .get();
+
+        if (!companyQuery.empty) {
+          await companyQuery.docs[0].ref.set(companyUpdate, { merge: true });
+          logger.info(`Updated company billing for ${companyQuery.docs[0].id}`);
+        }
       }
 
-      const finalPlan = subscriptionStatus === 'active' ? plan : 'free';
-
-      const q = await db
+      const customerQuery = await db
         .collection('customers')
         .where('stripeCustomerId', '==', stripeCustomerId)
+        .limit(1)
         .get();
 
-      if (!q.empty) {
-        await q.docs[0].ref.update({ plan: finalPlan });
-        logger.info(`Updated plan for ${q.docs[0].id}`);
+      if (!customerQuery.empty) {
+        await customerQuery.docs[0].ref.set(
+          {
+            plan: isLiveSubscription && resolvedPlan ? resolvedPlan : null,
+            subscriptionStatus,
+            stripeSubscriptionId: subscription.id,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        );
       }
     }
   } catch (err) {

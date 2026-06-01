@@ -5,6 +5,7 @@ import { collection, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuthContext } from '@/components/AuthProvider';
 import { useRouter } from 'next/navigation';
+import { calculatePrimerGamification } from '@/lib/primerGamification';
 
 
 type Employee = {
@@ -18,6 +19,8 @@ type Goal = {
   id: string;
   userId: string;
   status: string;
+  phase?: '30' | '60' | '90';
+  title?: string;
 };
 
 type EmployeeProgress = {
@@ -25,6 +28,10 @@ type EmployeeProgress = {
   total: number;
   completed: number;
   progress: number;
+  xp: number;
+  level: number;
+  levelName: string;
+  badgeCount: number;
 };
 
 export default function HRPrimerPage() {
@@ -46,10 +53,18 @@ export default function HRPrimerPage() {
 
         const snap = await getDocs(goalsRef);
 
-        const goals: Goal[] = snap.docs.map((doc) => ({
+        const rawGoals: Goal[] = snap.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
         })) as Goal[];
+        const goals = Array.from(
+          new Map(
+            rawGoals.map((goal: any) => [
+              `${goal.userId}:${goal.phase}:${goal.title}`,
+              goal,
+            ]),
+          ).values(),
+        ) as Goal[];
 
         //  FETCH EMPLOYEES
         const empRef = collection(db, `companies/${companyId}/employees`);
@@ -91,12 +106,17 @@ export default function HRPrimerPage() {
           ).length;
 
           const progress = total === 0 ? 0 : (completed / total) * 100;
+          const gamification = calculatePrimerGamification(userGoals);
 
           result.push({
             userId,
             total,
             completed,
             progress,
+            xp: gamification.xp,
+            level: gamification.level,
+            levelName: gamification.levelName,
+            badgeCount: gamification.badges.length,
           });
         });
 
@@ -136,18 +156,25 @@ export default function HRPrimerPage() {
             }
             className="p-4 bg-white dark:bg-gray-900 rounded-xl shadow cursor-pointer hover:shadow-lg transition"
           >
-            <div className="flex justify-between items-center mb-2">
-              <p className="font-medium text-gray-900 dark:text-white">
-                {employeesMap[emp.userId]?.name || 'Unknown User'}
-              </p>
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
+              <div>
+                <p className="font-medium text-gray-900 dark:text-white">
+                  {employeesMap[emp.userId]?.name || 'Unknown User'}
+                </p>
+                <p className="text-xs text-gray-500">
+                  {employeesMap[emp.userId]?.title || 'No title'}
+                </p>
+              </div>
 
-              <p className="text-xs text-gray-500">
-                {employeesMap[emp.userId]?.title || 'No title'}
-              </p>
-
-              <p className="text-sm text-gray-500">
-                {Math.round(emp.progress)}%
-              </p>
+              <div className="text-right">
+                <p className="text-sm font-semibold text-[#FB8C00]">
+                  Level {emp.level} · {emp.xp} XP
+                </p>
+                <p className="text-xs text-gray-500">
+                  {emp.levelName} · {emp.badgeCount} badges ·{' '}
+                  {Math.round(emp.progress)}%
+                </p>
+              </div>
             </div>
 
             {/* Progress bar */}

@@ -21,9 +21,10 @@ import {
   where,
 } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
+import { type AppPlan, isPaidAppPlan, normalizeAppPlan } from '@/lib/billingPlans';
 
 type Role = 'superadmin' | 'hr' | 'employee';
-type Plan = 'Trial' | 'Platinum';
+type Plan = AppPlan;
 
 type AuthContextType = {
   user: any | null;
@@ -45,7 +46,7 @@ const buildState = (
   value: Omit<AuthContextType, 'isTrial' | 'isPlatinum' | 'isTrialExpired'>,
 ): AuthContextType => {
   const isTrial = value.plan === 'Trial';
-  const isPlatinum = value.plan === 'Platinum';
+  const isPlatinum = isPaidAppPlan(value.plan);
   const isTrialExpired = isTrial && value.trialDaysLeft === 0;
 
   return {
@@ -54,15 +55,6 @@ const buildState = (
     isPlatinum,
     isTrialExpired,
   };
-};
-
-const normalizePlan = (value: unknown): Plan | null => {
-  const normalized = String(value ?? '').trim().toLowerCase();
-
-  if (normalized === 'trial') return 'Trial';
-  if (normalized === 'platinum') return 'Platinum';
-
-  return null;
 };
 
 const normalizeRole = (value: unknown): Role | null => {
@@ -140,54 +132,59 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const role = normalizeRole(userData.role);
           const companyId = userData.companyId ?? null;
 
-          let employeeId: string | null = userData.employeeId ?? null;
-
-          if (role === 'employee' && companyId && firebaseUser.email) {
-            const employeesSnap = await getDocs(
-              query(
-                collection(db, 'companies', companyId, 'employees'),
-                where('uid', '==', firebaseUser.uid),
-                limit(1),
-              ),
-            );
-
-            employeeId = employeesSnap.docs[0]?.id ?? employeeId;
-
-            if (employeeId && userData.employeeId !== employeeId) {
-              await setDoc(
-                doc(db, 'users', firebaseUser.uid),
-                { employeeId },
-                { merge: true },
-              );
-            }
-          }
-
           let plan: Plan | null = null;
           let trialEndsAt: Date | null = null;
           let trialDaysLeft: number | null = null;
+          let employeeId: string | null = userData.employeeId ?? null;
 
-          if (companyId) {
-            const companySnap = await getDoc(doc(db, 'companies', companyId));
+          const employeeLookupPromise =
+            role === 'employee' && companyId && !employeeId
+              ? getDocs(
+                  query(
+                    collection(db, 'companies', companyId, 'employees'),
+                    where('uid', '==', firebaseUser.uid),
+                    limit(1),
+                  ),
+                )
+              : Promise.resolve(null);
 
-            if (companySnap.exists()) {
-              const company = companySnap.data();
+          const companyLookupPromise = companyId
+            ? getDoc(doc(db, 'companies', companyId))
+            : Promise.resolve(null);
 
-              plan = normalizePlan(company.plan);
+          const [employeesSnap, companySnap] = await Promise.all([
+            employeeLookupPromise,
+            companyLookupPromise,
+          ]);
 
-              if (company.trialEndsAt) {
-                const ts =
-                  company.trialEndsAt instanceof Timestamp
-                    ? company.trialEndsAt
-                    : Timestamp.fromMillis(new Date(company.trialEndsAt).getTime());
+          employeeId = employeesSnap?.docs[0]?.id ?? employeeId;
 
-                trialEndsAt = ts.toDate();
+          if (employeeId && userData.employeeId !== employeeId) {
+            await setDoc(
+              doc(db, 'users', firebaseUser.uid),
+              { employeeId },
+              { merge: true },
+            );
+          }
 
-                const diff = trialEndsAt.getTime() - Date.now();
-                trialDaysLeft = Math.max(
-                  0,
-                  Math.ceil(diff / (1000 * 60 * 60 * 24)),
-                );
-              }
+          if (companySnap?.exists()) {
+            const company = companySnap.data();
+
+            plan = normalizeAppPlan(company.plan);
+
+            if (company.trialEndsAt) {
+              const ts =
+                company.trialEndsAt instanceof Timestamp
+                  ? company.trialEndsAt
+                  : Timestamp.fromMillis(new Date(company.trialEndsAt).getTime());
+
+              trialEndsAt = ts.toDate();
+
+              const diff = trialEndsAt.getTime() - Date.now();
+              trialDaysLeft = Math.max(
+                0,
+                Math.ceil(diff / (1000 * 60 * 60 * 24)),
+              );
             }
           }
 

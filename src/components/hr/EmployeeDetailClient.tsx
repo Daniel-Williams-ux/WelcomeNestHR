@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, DocumentData } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, DocumentData } from 'firebase/firestore';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { Briefcase, ChevronLeft } from 'lucide-react';
@@ -43,8 +43,11 @@ export default function EmployeeDetailClient({
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savingPayroll, setSavingPayroll] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedFlowId, setSelectedFlowId] = useState('');
+  const [salaryInput, setSalaryInput] = useState('');
+  const [payFrequencyInput, setPayFrequencyInput] = useState('monthly');
 
   // Fetch employee
   useEffect(() => {
@@ -66,10 +69,18 @@ export default function EmployeeDetailClient({
           setError('Employee not found.');
           setEmployee(null);
         } else {
-          setEmployee({
+          const nextEmployee = {
             id: snap.id,
             ...(snap.data() as DocumentData),
-          } as Employee);
+          } as Employee;
+
+          setEmployee(nextEmployee);
+          setSalaryInput(
+            typeof nextEmployee.salary === 'number'
+              ? String(nextEmployee.salary)
+              : '',
+          );
+          setPayFrequencyInput(nextEmployee.payFrequency ?? 'monthly');
         }
       } catch (err) {
         console.error(err);
@@ -134,6 +145,44 @@ export default function EmployeeDetailClient({
   };
 
   const back = () => router.push('/hr/employees');
+
+  const savePayrollSettings = async () => {
+    if (!companyId || !employee) return;
+
+    const salary = Number(salaryInput);
+
+    if (!Number.isFinite(salary) || salary <= 0) {
+      alert('Enter a valid salary greater than 0.');
+      return;
+    }
+
+    setSavingPayroll(true);
+    try {
+      const ref = doc(db, 'companies', companyId, 'employees', employee.id);
+
+      await updateDoc(ref, {
+        salary,
+        payFrequency: payFrequencyInput,
+      });
+
+      setEmployee((prev) =>
+        prev
+          ? {
+              ...prev,
+              salary,
+              payFrequency: payFrequencyInput,
+            }
+          : prev,
+      );
+
+      alert('Payroll settings saved.');
+    } catch (err) {
+      console.error(err);
+      alert('Failed to save payroll settings.');
+    } finally {
+      setSavingPayroll(false);
+    }
+  };
 
   const avatarSrc = useMemo(
     () => employee?.avatarUrl ?? '/placeholder-employee.png',
@@ -256,6 +305,45 @@ export default function EmployeeDetailClient({
                   </button>
                 </>
               )}
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl p-4 border">
+            <div className="text-xs text-gray-500">Payroll Settings</div>
+
+            <div className="mt-3 space-y-3">
+              <label className="block text-sm">
+                Salary
+                <input
+                  type="number"
+                  min="0"
+                  value={salaryInput}
+                  onChange={(e) => setSalaryInput(e.target.value)}
+                  placeholder="e.g. 250000"
+                  className="mt-1 w-full rounded border px-2 py-2 text-sm"
+                />
+              </label>
+
+              <label className="block text-sm">
+                Pay frequency
+                <select
+                  value={payFrequencyInput}
+                  onChange={(e) => setPayFrequencyInput(e.target.value)}
+                  className="mt-1 w-full rounded border px-2 py-2 text-sm"
+                >
+                  <option value="monthly">Monthly</option>
+                  <option value="biweekly">Biweekly</option>
+                  <option value="weekly">Weekly</option>
+                </select>
+              </label>
+
+              <button
+                onClick={savePayrollSettings}
+                disabled={savingPayroll}
+                className="w-full rounded bg-[#FB8C00] px-3 py-2 text-white disabled:opacity-50"
+              >
+                {savingPayroll ? 'Saving...' : 'Save Payroll Settings'}
+              </button>
             </div>
           </div>
         </aside>

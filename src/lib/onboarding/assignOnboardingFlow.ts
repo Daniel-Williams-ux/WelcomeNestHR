@@ -48,14 +48,10 @@ export async function assignOnboardingFlowToEmployee(
   }
 
   const flowData = flowSnap.data();
-
-  const existingEmployeeFlowSnap = await getDoc(employeeFlowRef);
-  const checklistSnap = existingEmployeeFlowSnap.exists()
-    ? null
-    : await getDocs(checklistRef);
+  const checklistSnap = await getDocs(checklistRef);
 
   const milestones =
-    checklistSnap?.docs
+    checklistSnap.docs
       .map((doc) => {
         const data = doc.data();
         return {
@@ -74,19 +70,22 @@ export async function assignOnboardingFlowToEmployee(
           ],
         };
       })
-      .sort((a, b) => a.order - b.order) ?? [];
+      .sort((a, b) => a.order - b.order);
 
   const batch = writeBatch(db);
 
-  if (!existingEmployeeFlowSnap.exists()) {
-    batch.set(employeeFlowRef, {
+  batch.set(
+    employeeFlowRef,
+    {
       flowId,
       name: flowData.name,
       type: 'primary',
       milestones,
       assignedAt: serverTimestamp(),
-    });
-  }
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true },
+  );
 
   batch.set(
     employeeRootRef,

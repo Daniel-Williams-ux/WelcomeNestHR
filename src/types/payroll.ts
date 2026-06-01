@@ -81,6 +81,7 @@ export interface PayrollAdjustment {
 export interface EmployeePayrollItem {
   runId: string;
   employeeId: string;
+  employeeUid?: string;
   employeeName: string;
 
   baseSalary: number;

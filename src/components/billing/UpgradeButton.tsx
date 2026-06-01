@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import type { BillingPlanId } from "@/lib/billingPlans";
 
-export default function UpgradeButton() {
+export default function UpgradeButton({ planId = "growth" }: { planId?: BillingPlanId }) {
   const [loading, setLoading] = useState(false);
 
   const createCheckoutSession = async () => {
@@ -14,7 +15,9 @@ export default function UpgradeButton() {
       method: "POST",
       headers: {
         Authorization: `Bearer ${idToken}`,
+        "Content-Type": "application/json",
       },
+      body: JSON.stringify({ planId }),
     });
 
     const data = await res.json();
@@ -33,7 +36,7 @@ export default function UpgradeButton() {
       disabled={loading}
       className="mt-4 px-6 py-2 bg-brand text-white rounded-lg hover:opacity-90 disabled:opacity-50"
     >
-      {loading ? "Redirecting..." : "Upgrade to Platinum"}
+      {loading ? "Redirecting..." : "Choose plan"}
     </button>
   );
 }

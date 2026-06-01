@@ -35,12 +35,7 @@ export default function Footer() {
               </Link>
             </li>
             <li>
-              <Link href="#pricing" className="hover:text-white transition">
-                Pricing
-              </Link>
-            </li>
-            <li>
-              <Link href="#contact" className="hover:text-white transition">
+              <Link href="/demo" className="hover:text-white transition">
                 Contact
               </Link>
             </li>
@@ -52,8 +47,21 @@ export default function Footer() {
           <h4 className="text-sm font-semibold uppercase mb-3 tracking-wider text-white/80">
             Contact
           </h4>
-          <p className="text-sm text-white/70">hello@welcomenest.ai</p>
-          <p className="text-sm text-white/70">+1 (555) 123-4567</p>
+          <p className="text-sm leading-6 text-white/70">
+            Have questions or want to see WelcomeNestHR in action?
+          </p>
+          <a
+            href="mailto:hello@welcomenesthr.example"
+            className="mt-3 block text-sm font-medium text-white hover:text-[#00ACC1] transition"
+          >
+            hello@welcomenesthr.example
+          </a>
+          <Link
+            href="/demo"
+            className="mt-3 inline-flex rounded-full border border-white/20 px-4 py-2 text-sm font-semibold text-white transition hover:border-[#00ACC1] hover:text-[#00ACC1]"
+          >
+            Request a demo
+          </Link>
         </div>
 
         {/* Socials */}

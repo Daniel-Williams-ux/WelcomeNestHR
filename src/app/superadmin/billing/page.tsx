@@ -65,8 +65,10 @@ export default function SuperAdminBillingPage() {
             </h2>
 
             <div className="space-y-3 text-sm">
-              <Row label="Trial Plan" value="2 companies" />
-              <Row label="Platinum Plan" value="0 companies" />
+              <Row label="Trial" value="2 companies" />
+              <Row label="Starter" value="0 companies" />
+              <Row label="Growth" value="0 companies" />
+              <Row label="Pro" value="0 companies" />
               <Row label="Canceled" value="0 companies" />
             </div>
           </CardContent>

@@ -5,12 +5,9 @@ import { ChecklistTasks } from '@/components/ChecklistTasks';
 import { MilestonesTimeline } from '@/components/MilestonesTimeline';
 import { useEmployeeOnboarding } from '@/hooks/useEmployeeOnboarding';
 import { useMilestones } from '@/hooks/useMilestones';
-import { useUserAccess } from '@/hooks/useUserAccess';
 import { useEmployeeActiveFlow } from '@/hooks/useEmployeeActiveFlow';
 
 export default function SmartOnboardingPage() {
-  const { user } = useUserAccess();
-
   const { flowId, loading: flowLoading } = useEmployeeActiveFlow();
 
   const {
@@ -41,6 +38,21 @@ export default function SmartOnboardingPage() {
     return (
       <div className="p-6 text-gray-500">
         No onboarding flow has been assigned yet.
+      </div>
+    );
+  }
+
+  if (steps.length === 0) {
+    return (
+      <div className="p-6">
+        <section className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-amber-900">
+          <h1 className="text-lg font-semibold">Onboarding flow assigned</h1>
+          <p className="mt-2 text-sm leading-6">
+            HR has assigned an onboarding flow, but no checklist tasks have been
+            added to it yet. Once HR adds tasks and assigns the flow again, they
+            will appear here.
+          </p>
+        </section>
       </div>
     );
   }

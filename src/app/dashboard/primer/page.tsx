@@ -7,7 +7,6 @@ import { createPrimerPlan } from '@/lib/primer';
 import { serverTimestamp } from 'firebase/firestore';
 import {
   doc,
-  getDoc,
   updateDoc,
   collection,
   query,
@@ -15,6 +14,10 @@ import {
   getDocs,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import {
+  calculatePrimerGamification,
+  getPrimerPhaseCelebrations,
+} from '@/lib/primerGamification';
 
 export default function PrimerPage() {
   const { user, companyId, role, loading } = useAuthContext();
@@ -31,6 +34,8 @@ export default function PrimerPage() {
   };
 
   const allGoals = goals;
+  const gamification = calculatePrimerGamification(allGoals);
+  const celebrations = getPrimerPhaseCelebrations(gamification.phaseProgress);
 
   const overallProgress = (() => {
     if (allGoals.length === 0) return 0;
@@ -107,7 +112,18 @@ export default function PrimerPage() {
           uniqueGoalsMap.set(goal.id, goal);
         });
 
-        const fetchedGoals = Array.from(uniqueGoalsMap.values());
+        const uniqueGoalsByTemplate = new Map();
+
+        Array.from(uniqueGoalsMap.values()).forEach((goal: any) => {
+          const key = `${goal.phase}:${goal.title}`;
+          const existing = uniqueGoalsByTemplate.get(key);
+
+          if (!existing || goal.status === 'completed') {
+            uniqueGoalsByTemplate.set(key, goal);
+          }
+        });
+
+        const fetchedGoals = Array.from(uniqueGoalsByTemplate.values());
 
         setGoals(fetchedGoals);
         setInitialized(true);
@@ -206,6 +222,79 @@ export default function PrimerPage() {
       )}
 
       {planId && (
+        <div className="mb-6 grid gap-4 lg:grid-cols-[1fr_1.4fr]">
+          <div className="rounded-xl border border-orange-100 bg-gradient-to-br from-orange-50 to-white p-4 shadow dark:border-orange-900 dark:from-orange-950/20 dark:to-gray-900">
+            <p className="text-xs font-semibold uppercase tracking-wide text-[#FB8C00]">
+              Primer Level
+            </p>
+            <div className="mt-2 flex items-end justify-between gap-3">
+              <div>
+                <p className="text-3xl font-black text-gray-900 dark:text-white">
+                  Level {gamification.level}
+                </p>
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                  {gamification.levelName}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-2xl font-bold text-[#FB8C00]">
+                  {gamification.xp} XP
+                </p>
+                <p className="text-xs text-gray-500">
+                  {gamification.nextLevelXp
+                    ? `${gamification.nextLevelXp - gamification.xp} XP to next level`
+                    : 'Top level reached'}
+                </p>
+              </div>
+            </div>
+            <div className="mt-4 h-2 overflow-hidden rounded-full bg-orange-100">
+              <div
+                className="h-full rounded-full bg-[#FB8C00]"
+                style={{ width: `${gamification.progressToNextLevel}%` }}
+              />
+            </div>
+          </div>
+
+          <div className="rounded-xl border bg-white p-4 shadow dark:border-gray-800 dark:bg-gray-900">
+            <p className="text-sm font-semibold text-gray-900 dark:text-white">
+              Badges earned
+            </p>
+            {gamification.badges.length === 0 ? (
+              <p className="mt-2 text-sm text-gray-500">
+                Complete your first Primer goal to earn your first badge.
+              </p>
+            ) : (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {gamification.badges.map((badge) => (
+                  <span
+                    key={badge.id}
+                    title={badge.description}
+                    className="rounded-full border border-cyan-100 bg-cyan-50 px-3 py-1 text-xs font-semibold text-[#006e7f]"
+                  >
+                    {badge.label}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {celebrations.length > 0 && (
+        <div className="mb-6 space-y-2">
+          {celebrations.map((celebration) => (
+            <div
+              key={celebration.phase}
+              className="rounded-xl border border-green-100 bg-green-50 p-4 text-sm text-green-900"
+            >
+              <p className="font-semibold">{celebration.title}</p>
+              <p className="mt-1">{celebration.message}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {planId && (
         <div className="space-y-6">
           {/* 30 Days */}
           <div>
@@ -263,6 +352,9 @@ export default function PrimerPage() {
                       }`}
                     >
                       {goal.status === 'completed' ? 'Completed' : 'Pending'}
+                    </span>
+                    <span className="ml-2 inline-block rounded-full bg-orange-50 px-2 py-1 text-xs font-semibold text-[#FB8C00]">
+                      +25 XP
                     </span>
                   </div>
                 </div>
@@ -326,6 +418,9 @@ export default function PrimerPage() {
                       }`}
                     >
                       {goal.status === 'completed' ? 'Completed' : 'Pending'}
+                    </span>
+                    <span className="ml-2 inline-block rounded-full bg-orange-50 px-2 py-1 text-xs font-semibold text-[#FB8C00]">
+                      +25 XP
                     </span>
                   </div>
                 </div>
@@ -397,6 +492,9 @@ export default function PrimerPage() {
                       }`}
                     >
                       {goal.status === 'completed' ? 'Completed' : 'Pending'}
+                    </span>
+                    <span className="ml-2 inline-block rounded-full bg-orange-50 px-2 py-1 text-xs font-semibold text-[#FB8C00]">
+                      +25 XP
                     </span>
                   </div>
                 </div>

@@ -20,7 +20,6 @@ type NavLink =
 
 const navLinks: NavLink[] = [
   { name: "Home", href: "/" },
-  { name: "Why", href: "#why" },
   {
     name: "Platform",
     dropdown: true,
@@ -33,8 +32,6 @@ const navLinks: NavLink[] = [
     ],
   },
   { name: "Features", href: "#features" },
-  { name: "Pricing", href: "#pricing" },
-  { name: "Resources", href: "#resources" },
 ];
 
 const NavigationBar = () => {

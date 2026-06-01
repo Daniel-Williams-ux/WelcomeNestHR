@@ -131,9 +131,13 @@ service cloud.firestore {
       // LifeSync mood and wellness entries.
       match /lifesync/{module}/entries/{entryId} {
         allow read: if signedIn()
+          && request.auth.uid == userId;
+
+        allow read: if signedIn()
+          && hasRole(['hr', 'superadmin'])
           && (
-            request.auth.uid == userId
-            || hasRole(['hr', 'superadmin'])
+            !('visibility' in resource.data)
+            || resource.data.visibility != 'private'
           );
 
         allow write: if signedIn()
@@ -176,6 +180,24 @@ service cloud.firestore {
       allow create, delete: if isSuperadmin();
 
       allow update: if canManageCompany(companyId);
+
+      // Company-level LifeSync feed for HR dashboards. Employees can mirror
+      // only their shared/trend entries here; private journals stay user-only.
+      match /lifesyncEntries/{entryId} {
+        allow read: if canManageCompany(companyId);
+
+        allow create: if isCompanyMember(companyId)
+          && request.resource.data.userId == request.auth.uid
+          && request.resource.data.visibility in ['hr_visible', 'anonymous_hr'];
+
+        allow update: if isCompanyMember(companyId)
+          && resource.data.userId == request.auth.uid
+          && request.resource.data.userId == request.auth.uid
+          && request.resource.data.visibility in ['hr_visible', 'anonymous_hr'];
+
+        allow delete: if isCompanyMember(companyId)
+          && resource.data.userId == request.auth.uid;
+      }
 
       // -----------------------------------------------------
       // EMPLOYEES

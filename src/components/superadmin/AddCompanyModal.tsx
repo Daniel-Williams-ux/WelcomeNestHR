@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/use-toast';
+import { DEFAULT_TRIAL_DAYS } from '@/lib/billingPlans';
 
 export default function AddCompanyModal({
   open,
@@ -45,7 +46,7 @@ export default function AddCompanyModal({
     setLoading(true);
 
     try {
-      const trialDurationDays = 14;
+      const trialDurationDays = DEFAULT_TRIAL_DAYS;
 
       let trialEndsAt = null;
 
@@ -58,6 +59,8 @@ export default function AddCompanyModal({
       await addDoc(collection(db, 'companies'), {
         name: name.trim(),
         plan,
+        billingPlanId: plan === 'Trial' ? null : plan.toLowerCase(),
+        subscriptionStatus: plan === 'Trial' ? 'trialing' : 'active',
         trialEndsAt: trialEndsAt ? trialEndsAt : null,
         employeeCount: 0,
         createdAt: serverTimestamp(),
@@ -117,7 +120,9 @@ export default function AddCompanyModal({
               className="w-full border border-gray-300 rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#00ACC1]"
             >
               <option value="Trial">Trial</option>
-              <option value="Platinum">Platinum</option>
+              <option value="Starter">Starter</option>
+              <option value="Growth">Growth</option>
+              <option value="Pro">Pro</option>
             </select>
           </div>
 

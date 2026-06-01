@@ -155,9 +155,13 @@ function SignupPageContent() {
       }
 
       try {
+        const controller = new AbortController();
+        const timeoutId = window.setTimeout(() => controller.abort(), 15000);
         const response = await fetch(
           `/api/invitations/validate?token=${encodeURIComponent(token)}`,
+          { signal: controller.signal },
         );
+        window.clearTimeout(timeoutId);
         const payload = await response.json();
 
         if (!response.ok) {
@@ -166,8 +170,12 @@ function SignupPageContent() {
         }
 
         setInvite(payload as InviteDetails);
-      } catch {
-        setPageError('We could not validate this invitation. Please try again.');
+      } catch (error) {
+        setPageError(
+          error instanceof DOMException && error.name === 'AbortError'
+            ? 'Invitation validation took too long. Check that the app URL matches the running server, then try again.'
+            : 'We could not validate this invitation. Please try again.',
+        );
       } finally {
         setLoadingInvite(false);
       }

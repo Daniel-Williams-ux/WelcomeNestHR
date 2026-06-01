@@ -74,7 +74,11 @@ export default function MessagePage() {
 
   // 🔥 send message
   const handleSend = async () => {
-    if (!input.trim() || !companyId || !conversationId) return;
+    if (!input.trim() || !companyId || !conversationId || !user?.uid) return;
+    const messageText = input.trim();
+    const senderName =
+      user.fullName || user.displayName || user.name || user.email || 'HR';
+    const recipientName = userData?.name || userData?.email || 'Employee';
 
     const convoRef = doc(
       db,
@@ -89,6 +93,12 @@ export default function MessagePage() {
       convoRef,
       {
         participants: [String(user.uid), String(userId)].sort(),
+        participantNames: {
+          [String(user.uid)]: senderName,
+          [String(userId)]: recipientName,
+        },
+        lastMessage: messageText,
+        lastSenderId: user.uid,
         updatedAt: serverTimestamp(),
       },
       { merge: true },
@@ -97,7 +107,7 @@ export default function MessagePage() {
     const messagesRef = collection(convoRef, 'messages');
 
     await addDoc(messagesRef, {
-      text: input,
+      text: messageText,
       senderId: user.uid,
       createdAt: serverTimestamp(),
     });

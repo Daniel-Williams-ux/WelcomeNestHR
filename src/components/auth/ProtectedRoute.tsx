@@ -4,6 +4,7 @@ import { useUserAccess } from '@/hooks/useUserAccess';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import UpgradeToContinue from './UpgradeToContinue';
+import { isPaidAppPlan } from '@/lib/billingPlans';
 
 export default function ProtectedRoute({
   children,
@@ -29,7 +30,7 @@ export default function ProtectedRoute({
     );
   }
 
-  const canAccessPremium = plan === 'Platinum' || (plan === 'Trial' && !isTrialExpired);
+  const canAccessPremium = isPaidAppPlan(plan) || (plan === 'Trial' && !isTrialExpired);
 
   if (!canAccessPremium) {
     return <UpgradeToContinue plan={plan} isTrialExpired={isTrialExpired} />;

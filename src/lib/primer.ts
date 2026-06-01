@@ -19,6 +19,118 @@ export type CreatePrimerPlanInput = {
   startDate?: Date;
 };
 
+type PrimerGoalTemplate = {
+  phase: '30' | '60' | '90';
+  title: string;
+  description: string;
+  successCriteria: string;
+};
+
+const DEFAULT_PRIMER_GOALS: PrimerGoalTemplate[] = [
+  {
+    phase: '30',
+    title: 'Understand your role and expectations',
+    description:
+      'Review your responsibilities, team structure, success measures, and immediate priorities.',
+    successCriteria:
+      'Employee can clearly explain their role, reporting line, and first-month priorities.',
+  },
+  {
+    phase: '30',
+    title: 'Build working relationships',
+    description:
+      'Meet key teammates, HR contacts, and collaborators needed for day-to-day work.',
+    successCriteria:
+      'Employee has completed introductory meetings and knows who to contact for support.',
+  },
+  {
+    phase: '60',
+    title: 'Own core responsibilities',
+    description:
+      'Begin handling regular tasks with manager guidance and document any blockers.',
+    successCriteria:
+      'Employee is completing core responsibilities with reduced supervision.',
+  },
+  {
+    phase: '60',
+    title: 'Identify improvement opportunities',
+    description:
+      'Share observations about process, tools, customer experience, or team workflows.',
+    successCriteria:
+      'Employee has submitted at least one useful improvement idea or learning reflection.',
+  },
+  {
+    phase: '90',
+    title: 'Deliver a 90-day success review',
+    description:
+      'Review progress, strengths, gaps, and next-quarter development goals with HR or manager.',
+    successCriteria:
+      'Employee has completed a 90-day review and agreed next goals.',
+  },
+  {
+    phase: '90',
+    title: 'Set next growth goals',
+    description:
+      'Define measurable growth goals for the next quarter based on role expectations.',
+    successCriteria:
+      'Employee has documented clear, measurable goals for the next performance period.',
+  },
+];
+
+function buildGoalPayload(
+  goal: PrimerGoalTemplate,
+  planId: string,
+  userId: string,
+  companyId: string,
+) {
+  return {
+    planId,
+    userId,
+    companyId,
+    phase: goal.phase,
+    title: goal.title,
+    description: goal.description,
+    successCriteria: goal.successCriteria,
+    ownerId: userId,
+    reviewerId: null,
+    status: 'pending',
+    progress: 0,
+    createdAt: Timestamp.now(),
+    updatedAt: Timestamp.now(),
+  };
+}
+
+async function ensureGoalsForPlan(
+  planId: string,
+  userId: string,
+  companyId: string,
+  goals: PrimerGoalTemplate[],
+) {
+  const goalsRef = collection(db, `companies/${companyId}/primerGoals`);
+  const existingGoalsQuery = query(goalsRef, where('userId', '==', userId));
+  const existingGoalsSnap = await getDocs(existingGoalsQuery);
+  const existingKeys = new Set(
+    existingGoalsSnap.docs.map((goalDoc) => {
+      const goal = goalDoc.data();
+      return `${goal.phase}:${goal.title}`;
+    }),
+  );
+  const missingGoals = goals.filter(
+    (goal) => !existingKeys.has(`${goal.phase}:${goal.title}`),
+  );
+
+  if (missingGoals.length === 0) return;
+
+  const batch = writeBatch(db);
+
+  missingGoals.forEach((goal) => {
+    const goalRef = doc(goalsRef);
+    batch.set(goalRef, buildGoalPayload(goal, planId, userId, companyId));
+  });
+
+  await batch.commit();
+}
+
 // ---- MAIN FUNCTION ----
 
 export async function createPrimerPlan(input: CreatePrimerPlanInput) {
@@ -40,6 +152,13 @@ export async function createPrimerPlan(input: CreatePrimerPlanInput) {
 
   if (!existingSnapshot.empty) {
     const existingPlan = existingSnapshot.docs[0];
+
+    await ensureGoalsForPlan(
+      existingPlan.id,
+      userId,
+      companyId,
+      DEFAULT_PRIMER_GOALS,
+    );
 
     return {
       planId: existingPlan.id,
@@ -113,6 +232,19 @@ export async function createPrimerPlan(input: CreatePrimerPlanInput) {
   const templateSnap = await getDocs(templateQuery);
 
   console.log('Templates found:', templateSnap.size);
+  const goals =
+    templateSnap.empty
+      ? DEFAULT_PRIMER_GOALS
+      : templateSnap.docs.map((docSnap) => {
+          const t = docSnap.data();
+
+          return {
+            phase: t.phase,
+            title: t.title,
+            description: t.description,
+            successCriteria: t.successCriteria,
+          } as PrimerGoalTemplate;
+        });
 
   // =========================================================
   // 5. CREATE GOALS FROM TEMPLATES
@@ -120,31 +252,9 @@ export async function createPrimerPlan(input: CreatePrimerPlanInput) {
 
   const goalsRef = collection(db, `companies/${companyId}/primerGoals`);
 
-  templateSnap.docs.forEach((docSnap) => {
-    const t = docSnap.data();
-
+  goals.forEach((goal) => {
     const goalRef = doc(goalsRef);
-
-    batch.set(goalRef, {
-      planId: planRef.id,
-      userId,
-      companyId,
-
-      phase: t.phase,
-
-      title: t.title,
-      description: t.description,
-      successCriteria: t.successCriteria,
-
-      ownerId: userId,
-      reviewerId: null,
-
-      status: 'pending',
-      progress: 0,
-
-      createdAt: Timestamp.now(),
-      updatedAt: Timestamp.now(),
-    });
+    batch.set(goalRef, buildGoalPayload(goal, planRef.id, userId, companyId));
   });
 
   // =========================================================

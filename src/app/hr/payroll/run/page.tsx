@@ -126,6 +126,13 @@ export default function HRPayrollRunPage() {
       {/* EMPLOYEE TABLE */}
       <Card>
         <CardContent className="p-0 overflow-x-auto">
+          {items.length === 0 ? (
+            <div className="p-4 text-sm text-amber-800">
+              No payroll-ready employees were found. Make sure active employees
+              have a numeric salary greater than 0. Employees without a pay
+              frequency default to monthly payroll.
+            </div>
+          ) : (
           <table className="w-full text-sm">
             <thead className="bg-gray-100 border-b">
               <tr>
@@ -150,6 +157,7 @@ export default function HRPayrollRunPage() {
               ))}
             </tbody>
           </table>
+          )}
         </CardContent>
       </Card>
 
