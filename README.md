@@ -138,7 +138,7 @@ Before production launch:
 
 ## Leadership
 
-- **Miles Duval:** Visionary, CEO, and Founder
+- **Gregory Apfel Miles Duval:** Visionary, CEO, and Founder
 - **Daniel Chinonso Williams:** Co-founder and Chief Product Architect
 
 ## Philosophy
