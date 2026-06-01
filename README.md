@@ -1,253 +1,148 @@
 # WelcomeNestHR
 
-WelcomeNestHR is a modern HR onboarding and workforce management platform designed to help organizations onboard employees with clarity, structure, and human-centered experience.
+WelcomeNestHR is a modern HR onboarding and employee experience platform built for companies that want new hires to feel clear, supported, connected, and ready to contribute from day one.
 
-It combines operational workflows (onboarding, payroll, compliance) with emotional intelligence (belonging, connection, guided experiences).
+The platform combines operational HR workflows with emotional intelligence: structured onboarding, compliance, payroll readiness, employee messaging, 30-60-90 day success planning, and LifeSync wellbeing insights.
 
----
+## Product Vision
 
-## Overview
+Most onboarding tools stop at checklists. WelcomeNestHR is designed to go further by helping HR teams understand whether employees are progressing, supported, connected, and at risk of disengagement.
 
-WelcomeNestHR is built as a multi-tenant SaaS platform where:
+The goal is to give companies a more human operating system for onboarding and early employee success.
 
-A Superadmin creates and manages companies
-A Company (HR) manages employees and internal workflows
-An Employee experiences structured onboarding and workplace tools
+## Core Roles
 
-The system is designed for clarity, scalability, and real-world HR workflows, not demo-level features.
+- **Superadmin:** Creates companies, manages platform-level access, invites HR users, and oversees company setup.
+- **HR:** Manages employees, onboarding flows, compliance, payroll settings, announcements, messaging, LifeSync insights, and Primer progress.
+- **Employee:** Completes onboarding, views payslips, uses LifeSync, follows Primer goals, receives announcements, and communicates with HR.
 
----
+## Key Modules
 
-## Core Architecture
-Roles
-- Superadmin
-Creates companies
-Sends invitation links
-Oversees system usage
+- **Smart Onboarding:** Company-specific onboarding flows, checklists, milestones, and employee task tracking.
+- **Compliance:** HR visibility into onboarding and required employee progress.
+- **LifeSync:** Emotional intelligence check-ins, privacy-aware employee wellbeing logs, and a scalable company-level HR insight feed.
+- **Primer:** 30-60-90 day employee success plans with gamification, XP, levels, badges, and HR progress visibility.
+- **Collaborate:** Announcements, buddy assignment, org visibility, and employee connection tools.
+- **Payroll and Payslips:** HR payroll setup, payroll run snapshots, approval flow, paid status tracking, and employee payslip access.
+- **Messages:** HR-to-employee and employee-to-HR messaging with conversation previews and participant names.
+- **NestGuide AI:** Role-aware support assistant for HR and employees, with local fallback guidance when external AI is unavailable.
+- **Billing:** Company-level SaaS billing foundation with Stripe, trial support, plan metadata, and HR-only billing controls.
+- **Demo Requests:** Public demo request page that stores validated inbound leads in Firestore.
 
-- HR
-Manages employees
-Runs onboarding
-Handles payroll and internal tools
+## Architecture
 
-- Employee
-Completes onboarding
-Uses company tools (primer, collaborate, etc.)
+WelcomeNestHR is built as a multi-tenant SaaS application.
 
----
+Core tenant structure:
 
-## Key Features
-1. Invitation-Based Onboarding System
-- HR users are invited via secure token links
+```text
+users/{userId}
 
-- Tokens are stored in Firestore under:
+companies/{companyId}
+  employees/{employeeId}
+  invitations/{inviteId}
+  onboardingFlows/{flowId}
+  payrollRuns/{runId}
+    items/{itemId}
+  lifesyncEntries/{entryId}
 
- companies/{companyId}/invitations/{inviteId}
-- Invite flow:
- 1.Superadmin sends invite
- 2. User clicks link
- 3. Signup page validates token
- 4. Account is created
- 5. Invitation marked as accepted
- 6. User document created in /users
-  
-2. Authentication & Access Control
-- Firebase Authentication (Email + Google)
-- Firestore-backed user roles
-- Centralized auth via:
-  AuthProvider → useAuthContext → useUserAccess
-- Handles:
-  - role
-  - companyId
-  - plan
-  - trial
-  - employeeId sync
-    
-3. Role-Based Routing System
+payslips/{payslipId}
+demoRequests/{requestId}
+```
 
-After login/signup:
+Important architecture decisions:
 
-/route-router → redirects based on role
-- superadmin → /superadmin
-- hr → /hr
-- employee → /dashboard
-  
-4. Company Management (Superadmin)
-- Create companies
-- Assign plan (Trial / Platinum)
-- Track:
-  - employee count
-  - status
-  - trial period
-    
-5. HR Dashboard
-
-HR has a dedicated dashboard with isolated layout:
-
-Modules include:
-
-- Overview
-- Employees
-- Onboarding
-- Primer
-- Payroll
-- Compliance
-- Collaborate
-- Messages
-- LifeSync
-
-6. Employee System
-
-- Employees are stored under:
-
-  companies/{companyId}/employees/{employeeId}
-
-- User linkage:
-
-  users/{userId} → employeeId
-
-- System ensures:
-  - No duplicate linkage
-  - Auto-sync of employeeId into user doc
-    
-7. Primer Module
-- Structured onboarding guidance
-- Milestones and checklist system
-- Seeded per employee
-  
-8. Payroll System (Production-Ready)
-- Payroll runs
-- Snapshot of employees
-- Approval flow
-- Payslip generation
-
-Collections:
-  payrollRuns
-  payrollRuns/{runId}/items
-  payslips
-  
-9. Firestore Structure (SSOT)
-   users/{userId}
-
-   companies/{companyId}
-     ├── employees/{employeeId}
-     ├── invitations/{inviteId}
-     ├── payrollRuns/{runId}
-     │     └── items/{itemId}
-
-   payslips/{payslipId}
-
----
-
-
-## Critical Engineering Decisions
-1. Invite System Uses Subcollections
-
-Instead of global invites:
-
-  companies/{companyId}/invitations
-
-This ensures:
-  - Proper tenant isolation
-  - Scalable queries via collectionGroup
-
-2. Auth Race Condition Handling
-
-### Problem:
-Firebase Auth resolves before Firestore user doc exists
-
-### Solution:
-Retry logic in AuthProvider
-
-  while (retries < 5) {
-    snap = await getDoc(...)
-    if (snap.exists()) break
-  }
-
-  
-3. Employee Sync Strategy
-
-System ensures:
-
-- User → Employee linkage is always consistent
-- Backfills missing employeeId automatically
-
-4. Firestore Rules for Invitations
-
-Supports collectionGroup queries:
-
-match /{path=**}/invitations/{inviteId} {
-  allow list: if true;
-  allow get: if resource.data.status == "pending"
-    && request.time < resource.data.expiresAt;
-}
-
----
+- Company data is scoped under `companies/{companyId}` for tenant isolation.
+- HR invitations use company subcollections and secure token validation.
+- Employee user records are linked back to company employee records through `employeeId`.
+- LifeSync shared entries are mirrored into a company-level feed so HR can monitor hundreds of employees without opening one listener per employee.
+- Payroll runs snapshot employee salary data at run creation time to preserve historical accuracy.
+- Billing is managed at the company level rather than employee level.
 
 ## Tech Stack
-- Frontend: Next.js (App Router)
-- Backend: Firebase (Auth + Firestore)
-- State: React Context
-- Styling: Tailwind CSS
-- Payments: Stripe (planned integration complete)
-  
----
 
-## Current Status
-### Stable
-- Auth system
-- Invite flow
-- Role routing
-- HR dashboard layout
-- Payroll core logic
-  
-### In Progress
-- Employee UI refinement
-- Messages module
-- Primer enhancements
-  
-### Planned
-- Notifications system
-- Advanced analytics
-- Full audit logs UI
-- Multi-company scaling improvements
+- **Framework:** Next.js App Router
+- **Language:** TypeScript
+- **UI:** React, Tailwind CSS, Framer Motion, Lucide Icons
+- **Authentication:** Firebase Authentication
+- **Database:** Cloud Firestore
+- **Backend:** Next.js API routes and Firebase Functions
+- **Payments:** Stripe Billing
+- **AI:** OpenAI API with role-aware local fallback guidance
+- **Hosting target:** Firebase Hosting / modern server-capable deployment setup
 
----
+## Local Development
 
-## Running Locally
+Install dependencies:
+
+```bash
 npm install
+```
+
+Run the development server:
+
+```bash
 npm run dev
+```
 
-App runs on:
+The app typically runs at:
 
+```text
 http://localhost:3000
+```
 
----
+Build the app:
 
-## Deployment Notes
+```bash
+npm run build
+```
 
-Before production:
+Build Firebase Functions:
 
-Set Firebase rules (secured)
-Enable App Check
-Configure environment variables
-Connect Stripe production keys
-Add domain + HTTPS
+```bash
+npm --prefix functions run build
+```
 
----
+## Environment Variables
+
+The app requires Firebase, Stripe, and optional OpenAI configuration.
+
+Key examples:
+
+```text
+NEXT_PUBLIC_BASE_URL=
+FIREBASE_PROJECT_ID=
+FIREBASE_CLIENT_EMAIL=
+FIREBASE_PRIVATE_KEY=
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
+STRIPE_STARTER_PRICE_ID=
+STRIPE_GROWTH_PRICE_ID=
+STRIPE_PRO_PRICE_ID=
+OPENAI_API_KEY=
+```
+
+Do not commit real secrets to the repository. Configure production secrets through the hosting provider, Firebase, Stripe, and CI/CD environment settings.
+
+## Production Readiness Notes
+
+Before production launch:
+
+- Deploy and verify Firestore security rules.
+- Configure Firebase Authentication providers and allowed domains.
+- Configure Stripe products, prices, webhooks, and billing portal.
+- Add production environment variables.
+- Enable App Check where appropriate.
+- Run a focused role/access-control test across Superadmin, HR, and Employee flows.
+- Run full onboarding, compliance, LifeSync, Primer, payroll, messages, billing, and demo request checks.
+
+## Leadership
+
+- **Miles Duval:** Visionary, CEO, and Founder
+- **Daniel Chinonso Williams:** Co-founder and Chief Product Architect
 
 ## Philosophy
 
-WelcomeNestHR is not just an HR tool.
+WelcomeNestHR is built around a simple belief: onboarding should not feel like a cold checklist.
 
-It is designed around:
-
-clarity over complexity
-human onboarding over checklists
-structured growth over chaos
-
-Author
-Built and designed by Daniel Williams
-
-visionary
-Gregory Miles
+It should create clarity, belonging, structure, emotional safety, and measurable progress for every new hire.
