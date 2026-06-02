@@ -3,13 +3,10 @@
 import { useParams } from 'next/navigation';
 import { useState } from 'react';
 import { useUserAccess } from '@/hooks/useUserAccess';
-import { useCurrentCompany } from '@/hooks/useCurrentCompany';
 import { useEmployees } from '@/hooks/useEmployees';
 import { useOnboardingChecklist } from '@/hooks/useOnboardingChecklist';
 import { assignOnboardingFlowToEmployee } from '@/lib/onboarding/assignOnboardingFlow';
 import Link from 'next/link';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 
 export default function OnboardingFlowDetailPage() {
   const { flowId } = useParams<{ flowId: string }>();
@@ -24,8 +21,7 @@ export default function OnboardingFlowDetailPage() {
   const [submitting, setSubmitting] = useState(false);
 
 
-  const { user } = useUserAccess();
-  const { companyId } = useCurrentCompany(user);
+  const { companyId } = useUserAccess();
   const { employees, loading: employeesLoading } = useEmployees(
     companyId ?? undefined,
     100,
@@ -63,10 +59,19 @@ async function handleAssign() {
 
   return (
     <div className="p-6 max-w-2xl space-y-6">
+      <section className="rounded-2xl border border-cyan-100 bg-cyan-50 p-4 text-sm text-[#006e7f] dark:border-cyan-900/50 dark:bg-cyan-950/30 dark:text-cyan-100">
+        <p className="font-semibold">This is a reusable onboarding template.</p>
+        <p className="mt-1 leading-6">
+          Checklist items added here will apply to every employee assigned this
+          flow. If James needs a separate checklist from Beauty, create a new
+          flow for James or that role before assigning it.
+        </p>
+      </section>
+
       {/* ─────────────────────────────────────────────
     ASSIGN FLOW TO EMPLOYEE
 ──────────────────────────────────────────── */}
-      <div className="border rounded-md p-4 space-y-3 bg-white">
+      <div className="border rounded-md p-4 space-y-3 bg-white dark:border-slate-800 dark:bg-slate-900">
         <h2 className="text-sm font-medium text-gray-700">
           Assign this flow to employee
         </h2>
@@ -78,7 +83,7 @@ async function handleAssign() {
         ) : (
           <div className="space-y-2">
             <select
-              className="w-full border rounded-md px-3 py-2 text-sm"
+              className="w-full border rounded-md px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
               value={selectedEmployeeId}
               onChange={(e) => setSelectedEmployeeId(e.target.value)}
             >
@@ -110,7 +115,7 @@ async function handleAssign() {
         )}
       </div>
       <div className="flex justify-between items-center">
-        <h1 className="text-xl font-semibold">Onboarding checklist</h1>
+        <h1 className="text-xl font-semibold">Template checklist</h1>
 
         <Link
           href={`/hr/onboarding/${flowId}/edit`}
@@ -123,16 +128,16 @@ async function handleAssign() {
       {/* ─────────────────────────────────────────────
           CREATE ITEM
       ───────────────────────────────────────────── */}
-      <div className="border rounded-md p-4 space-y-3 bg-gray-50">
+      <div className="border rounded-md p-4 space-y-3 bg-gray-50 dark:border-slate-800 dark:bg-slate-900">
         <input
-          className="w-full border rounded-md px-3 py-2 text-sm"
+          className="w-full border rounded-md px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
           placeholder="Checklist item title"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
         />
 
         <textarea
-          className="w-full border rounded-md px-3 py-2 text-sm"
+          className="w-full border rounded-md px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
           placeholder="Description (optional)"
           rows={3}
           value={description}
@@ -158,7 +163,7 @@ async function handleAssign() {
           {items.map((item) => (
             <li
               key={item.id}
-              className="border rounded-md p-4 flex flex-col gap-1"
+              className="border rounded-md p-4 flex flex-col gap-1 dark:border-slate-800 dark:bg-slate-900"
             >
               <span className="text-xs text-gray-400">
                 Step {item.order + 1}

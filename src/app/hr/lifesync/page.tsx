@@ -7,6 +7,7 @@ import {
   limit,
   onSnapshot,
   orderBy,
+  getDocs,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useUserAccess } from '@/hooks/useUserAccess';
@@ -95,6 +96,93 @@ function displayName(entry: { visibility?: string; employeeName?: string }) {
     : entry.employeeName || 'Employee';
 }
 
+async function loadLegacyLifeSyncEntries(companyId: string) {
+  const employeesSnap = await getDocs(collection(db, 'companies', companyId, 'employees'));
+  const employees = employeesSnap.docs
+    .map((employeeDoc) => {
+      const data = employeeDoc.data();
+      return {
+        id: employeeDoc.id,
+        uid: data.uid as string | undefined,
+        name: (data.name || data.fullName || data.email || 'Employee') as string,
+      };
+    })
+    .filter((employee) => employee.uid)
+    .slice(0, 50);
+
+  const moodResults = await Promise.all(
+    employees.map(async (employee) => {
+      const snap = await getDocs(
+        query(
+          collection(db, 'users', employee.uid!, 'lifesync', 'moodTracker', 'entries'),
+          orderBy('createdAt', 'desc'),
+          limit(3),
+        ),
+      );
+
+      return snap.docs
+        .map((entryDoc) => {
+          const data = entryDoc.data();
+          return {
+            id: `legacy-mood-${entryDoc.id}`,
+            mood: String(data.mood ?? ''),
+            note: data.visibility === 'anonymous_hr' ? '' : data.note,
+            userId: employee.uid,
+            employeeName:
+              data.visibility === 'anonymous_hr' ? undefined : employee.name,
+            confidence: data.confidence,
+            supported: data.supported,
+            connection: data.connection,
+            workload: data.workload,
+            visibility: data.visibility ?? 'hr_visible',
+            followUpRequested: data.followUpRequested,
+            urgentSupport: data.urgentSupport,
+            createdAt: data.updatedAt ?? data.createdAt,
+          } as MoodEntry;
+        })
+        .filter((entry) =>
+          ['hr_visible', 'anonymous_hr'].includes(String(entry.visibility)),
+        );
+    }),
+  );
+
+  const wellnessResults = await Promise.all(
+    employees.map(async (employee) => {
+      const snap = await getDocs(
+        query(
+          collection(db, 'users', employee.uid!, 'lifesync', 'wellnessLog', 'entries'),
+          orderBy('createdAt', 'desc'),
+          limit(3),
+        ),
+      );
+
+      return snap.docs
+        .map((entryDoc) => {
+          const data = entryDoc.data();
+          return {
+            id: `legacy-wellness-${entryDoc.id}`,
+            text: data.visibility === 'anonymous_hr' ? '' : String(data.text ?? ''),
+            category: data.category,
+            visibility: data.visibility ?? 'hr_visible',
+            followUpRequested: data.followUpRequested,
+            userId: employee.uid,
+            employeeName:
+              data.visibility === 'anonymous_hr' ? undefined : employee.name,
+            createdAt: data.updatedAt ?? data.createdAt,
+          } as WellnessEntry;
+        })
+        .filter((entry) =>
+          ['hr_visible', 'anonymous_hr'].includes(String(entry.visibility)),
+        );
+    }),
+  );
+
+  return {
+    moods: moodResults.flat().filter((entry) => entry.mood),
+    wellness: wellnessResults.flat(),
+  };
+}
+
 export default function HRLifeSyncPage() {
   const { user, companyId } = useUserAccess();
 
@@ -103,6 +191,7 @@ export default function HRLifeSyncPage() {
 
   useEffect(() => {
     if (!user || !companyId) return;
+    let cancelled = false;
 
     const feedQuery = query(
       collection(db, 'companies', companyId, 'lifesyncEntries'),
@@ -110,7 +199,7 @@ export default function HRLifeSyncPage() {
       limit(100),
     );
 
-    const unsubscribe = onSnapshot(feedQuery, (snap) => {
+    const unsubscribe = onSnapshot(feedQuery, async (snap) => {
       const entries = snap.docs.map(
         (entryDoc) =>
           ({
@@ -118,6 +207,19 @@ export default function HRLifeSyncPage() {
             ...entryDoc.data(),
           }) as CompanyLifeSyncEntry,
       );
+
+      if (entries.length === 0) {
+        try {
+          const legacy = await loadLegacyLifeSyncEntries(companyId);
+          if (!cancelled) {
+            setMoods(legacy.moods);
+            setWellness(legacy.wellness);
+          }
+        } catch (error) {
+          console.error('Failed to load legacy LifeSync entries:', error);
+        }
+        return;
+      }
 
       setMoods(
         entries
@@ -156,6 +258,7 @@ export default function HRLifeSyncPage() {
     });
 
     return () => {
+      cancelled = true;
       unsubscribe();
     };
   }, [companyId, user]);

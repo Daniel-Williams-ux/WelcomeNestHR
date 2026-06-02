@@ -25,7 +25,10 @@ export default function EmployeePrimerDetail() {
 
   useEffect(() => {
     async function fetchData() {
-      if (!companyId || !userId) return;
+      if (!companyId || !userId) {
+        setLoading(false);
+        return;
+      }
 
       try {
         // 🔹 Fetch employee
@@ -35,12 +38,14 @@ export default function EmployeePrimerDetail() {
 
         if (!empDocSnap.exists()) {
           console.log('Employee not found');
+          setLoading(false);
           return;
         }
 
         const employeeData = empDocSnap.data();
 
-        // STEP 2: now you have uid
+        // Goals may be keyed by Firebase auth uid in newer records, or by
+        // employee document id in older records. Read both to keep legacy data visible.
         const uid = employeeData.uid;
 
         // STEP 3: set employee + ref
@@ -50,16 +55,23 @@ export default function EmployeePrimerDetail() {
         });
 
         
-        // 🔹 Fetch goals
         const goalsRef = collection(db, `companies/${companyId}/primerGoals`);
-        const goalsQuery = query(goalsRef, where('userId', '==', uid));
-        const goalsSnap = await getDocs(goalsQuery);
+        const identityKeys = Array.from(
+          new Set([uid, userId].filter(Boolean) as string[]),
+        );
+        const goalSnapshots = await Promise.all(
+          identityKeys.map((identity) =>
+            getDocs(query(goalsRef, where('userId', '==', identity))),
+          ),
+        );
 
-        const rawGoals = goalsSnap.docs.map((doc) => ({
-          id: doc.id,
-          ref: doc.ref, // REQUIRED
-          ...doc.data(),
-        }));
+        const rawGoals = goalSnapshots.flatMap((goalsSnap) =>
+          goalsSnap.docs.map((doc) => ({
+            id: doc.id,
+            ref: doc.ref,
+            ...doc.data(),
+          })),
+        );
         const data = Array.from(
           new Map(
             rawGoals.map((goal: any) => [

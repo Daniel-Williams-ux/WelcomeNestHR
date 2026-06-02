@@ -10,7 +10,7 @@ import { calculatePrimerGamification } from '@/lib/primerGamification';
 
 type Employee = {
   id: string; 
-  uid: string;
+  uid?: string;
   name: string;
   title?: string;
 };
@@ -24,7 +24,10 @@ type Goal = {
 };
 
 type EmployeeProgress = {
+  employeeId: string;
   userId: string;
+  name: string;
+  title?: string;
   total: number;
   completed: number;
   progress: number;
@@ -40,18 +43,22 @@ export default function HRPrimerPage() {
 
   const [employees, setEmployees] = useState<EmployeeProgress[]>([]);
   const [loading, setLoading] = useState(true);
-  const [employeesMap, setEmployeesMap] = useState<Record<string, Employee>>(
-    {},
-  );
 
   useEffect(() => {
     async function fetchData() {
-      if (!companyId) return;
+      if (!companyId) {
+        setLoading(false);
+        return;
+      }
 
       try {
         const goalsRef = collection(db, `companies/${companyId}/primerGoals`);
+        const empRef = collection(db, `companies/${companyId}/employees`);
 
-        const snap = await getDocs(goalsRef);
+        const [snap, empSnap] = await Promise.all([
+          getDocs(goalsRef),
+          getDocs(empRef),
+        ]);
 
         const rawGoals: Goal[] = snap.docs.map((doc) => ({
           id: doc.id,
@@ -66,40 +73,37 @@ export default function HRPrimerPage() {
           ).values(),
         ) as Goal[];
 
-        //  FETCH EMPLOYEES
-        const empRef = collection(db, `companies/${companyId}/employees`);
-
-        const empSnap = await getDocs(empRef);
-
-        const empMap: Record<string, Employee> = {};
-
-        empSnap.docs.forEach((doc) => {
+        const employeeRows: Employee[] = empSnap.docs.map((doc) => {
           const data = doc.data();
 
-          empMap[data.uid] = {
+          return {
             id: doc.id, 
-            uid: data.uid,
-            name: data.name,
+            uid: data.uid || undefined,
+            name: data.name || data.fullName || data.email || 'Unnamed employee',
             title: data.title,
           };
         });
 
-        setEmployeesMap(empMap);
-
-        //  GROUP BY USER
-        const map = new Map<string, Goal[]>();
+        const goalsByIdentity = new Map<string, Goal[]>();
 
         goals.forEach((goal) => {
-          if (!map.has(goal.userId)) {
-            map.set(goal.userId, []);
-          }
-          map.get(goal.userId)!.push(goal);
+          if (!goal.userId) return;
+          const list = goalsByIdentity.get(goal.userId) ?? [];
+          list.push(goal);
+          goalsByIdentity.set(goal.userId, list);
         });
 
-        //  CALCULATE PROGRESS
-        const result: EmployeeProgress[] = [];
-
-        map.forEach((userGoals, userId) => {
+        const result: EmployeeProgress[] = employeeRows.map((employee) => {
+          const identityKeys = Array.from(
+            new Set([employee.uid, employee.id].filter(Boolean) as string[]),
+          );
+          const userGoals = Array.from(
+            new Map(
+              identityKeys
+                .flatMap((key) => goalsByIdentity.get(key) ?? [])
+                .map((goal) => [goal.id, goal]),
+            ).values(),
+          );
           const total = userGoals.length;
           const completed = userGoals.filter(
             (g) => g.status === 'completed',
@@ -108,8 +112,11 @@ export default function HRPrimerPage() {
           const progress = total === 0 ? 0 : (completed / total) * 100;
           const gamification = calculatePrimerGamification(userGoals);
 
-          result.push({
-            userId,
+          return {
+            employeeId: employee.id,
+            userId: employee.uid || employee.id,
+            name: employee.name,
+            title: employee.title,
             total,
             completed,
             progress,
@@ -117,7 +124,7 @@ export default function HRPrimerPage() {
             level: gamification.level,
             levelName: gamification.levelName,
             badgeCount: gamification.badges.length,
-          });
+          };
         });
 
         setEmployees(result);
@@ -150,19 +157,19 @@ export default function HRPrimerPage() {
       <div className="space-y-4">
         {employees.map((emp) => (
           <div
-            key={emp.userId}
+            key={emp.employeeId}
             onClick={() =>
-              router.push(`/hr/primer/${employeesMap[emp.userId]?.id}`)
+              router.push(`/hr/primer/${emp.employeeId}`)
             }
             className="p-4 bg-white dark:bg-gray-900 rounded-xl shadow cursor-pointer hover:shadow-lg transition"
           >
             <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
               <div>
                 <p className="font-medium text-gray-900 dark:text-white">
-                  {employeesMap[emp.userId]?.name || 'Unknown User'}
+                  {emp.name}
                 </p>
                 <p className="text-xs text-gray-500">
-                  {employeesMap[emp.userId]?.title || 'No title'}
+                  {emp.title || 'No title'}
                 </p>
               </div>
 

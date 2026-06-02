@@ -70,6 +70,31 @@ export default function HRCompliancePage() {
 
     const progressEntries = await Promise.all(
       employeeRows.map(async (employee) => {
+        const cachedProgress = employee.onboarding?.progress;
+        if (
+          cachedProgress &&
+          typeof cachedProgress.completed === 'number' &&
+          typeof cachedProgress.total === 'number'
+        ) {
+          return [
+            employee.id,
+            {
+              completed: cachedProgress.completed,
+              total: cachedProgress.total,
+              percent:
+                typeof cachedProgress.percent === 'number'
+                  ? cachedProgress.percent
+                  : cachedProgress.total === 0
+                    ? 0
+                    : Math.round(
+                        (cachedProgress.completed / cachedProgress.total) * 100,
+                      ),
+              currentMilestone:
+                cachedProgress.currentMilestone ?? 'Progress updated',
+            },
+          ] as const;
+        }
+
         const flowsSnap = await getDocs(
           collection(
             db,
@@ -241,23 +266,6 @@ export default function HRCompliancePage() {
   const validAssignments = assignments.filter((a) =>
     modules.some((m) => m.id === a.moduleId),
   );
-
-  const uniqueModules = Array.from(
-    new Set(validAssignments.map((a) => a.moduleId)),
-  );
-
-  const completedModules = uniqueModules.filter((moduleId) => {
-    const moduleAssignments = validAssignments.filter(
-      (a) => a.moduleId === moduleId,
-    );
-
-    return moduleAssignments.some((a) => a.status === 'completed');
-  });
-
-  const complianceRate =
-    uniqueModules.length === 0
-      ? 0
-      : Math.round((completedModules.length / uniqueModules.length) * 100);
   
   const employeeCompliance = employees.map((emp) => {
     const empAssignments = assignments.filter((a) => a.employeeId === emp.id);
@@ -291,6 +299,14 @@ export default function HRCompliancePage() {
       completed: completedModules.length,
     };
   });
+  const employeesWithCompliance = employeeCompliance.filter((ec) => ec.total > 0);
+  const complianceRate =
+    employeesWithCompliance.length === 0
+      ? 0
+      : Math.round(
+          employeesWithCompliance.reduce((sum, ec) => sum + ec.percent, 0) /
+            employeesWithCompliance.length,
+        );
 
   const atRiskEmployees = employeeCompliance
     .map((ec) => {
@@ -327,8 +343,8 @@ export default function HRCompliancePage() {
       {/* ================= HEADER ================= */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Compliance</h1>
-          <p className="text-sm text-gray-600 mt-1">
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Compliance</h1>
+          <p className="text-sm text-gray-600 mt-1 dark:text-slate-300">
             Manage training, assignments, and compliance tracking.
           </p>
         </div>
@@ -440,8 +456,10 @@ export default function HRCompliancePage() {
 
       <div className="space-y-3">
         <h2 className="text-lg font-medium">Tracking</h2>
-        <p className="text-sm text-gray-600">
-          Compliance Rate: {complianceRate}%
+        <p className="text-sm text-gray-600 dark:text-slate-300">
+          Company compliance rate: {complianceRate}% across{' '}
+          {employeesWithCompliance.length} employee
+          {employeesWithCompliance.length === 1 ? '' : 's'} with assigned modules.
         </p>
 
         <div className="mt-4 space-y-2">

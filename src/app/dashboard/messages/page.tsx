@@ -87,10 +87,15 @@ export default function MessagesPage() {
 
   return (
     <div className="p-6 max-w-2xl">
-      <h1 className="text-xl font-semibold mb-6">Messages</h1>
+      <h1 className="text-xl font-semibold mb-2 text-slate-950 dark:text-white">Messages</h1>
+      <p className="mb-6 text-sm text-slate-500 dark:text-slate-400">
+        Read HR updates and continue employee support conversations.
+      </p>
 
       {conversations.length === 0 && (
-        <p className="text-sm text-gray-500">No conversations yet.</p>
+        <p className="rounded-2xl border border-dashed border-slate-300 bg-white p-5 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400">
+          No conversations yet.
+        </p>
       )}
 
       <div className="space-y-3">
@@ -105,13 +110,13 @@ export default function MessagesPage() {
             <div
               key={c.id}
               onClick={() => router.push(`/dashboard/messages/${otherUser}`)}
-              className="p-4 rounded-xl border bg-white dark:bg-gray-900 cursor-pointer hover:shadow-sm transition"
+              className="p-4 rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 cursor-pointer hover:border-[#00ACC1]/40 hover:shadow-sm transition"
             >
               <div className="flex items-center justify-between">
-                <p className="font-medium text-sm">{name}</p>
+                <p className="font-medium text-sm text-slate-900 dark:text-white">{name}</p>
 
                 {c.updatedAt && (
-                  <span className="text-xs text-gray-400">
+                  <span className="text-xs text-slate-400">
                     {new Date(c.updatedAt.seconds * 1000).toLocaleTimeString(
                       [],
                       {
@@ -123,7 +128,7 @@ export default function MessagesPage() {
                 )}
               </div>
 
-              <p className="text-xs text-gray-500 mt-1 truncate">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 truncate">
                 {c.lastMessage || 'No messages yet'}
               </p>
             </div>

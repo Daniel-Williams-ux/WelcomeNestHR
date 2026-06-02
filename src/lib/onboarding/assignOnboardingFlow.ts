@@ -71,6 +71,10 @@ export async function assignOnboardingFlowToEmployee(
         };
       })
       .sort((a, b) => a.order - b.order);
+  const totalTasks = milestones.reduce(
+    (sum, milestone) => sum + milestone.tasks.length,
+    0,
+  );
 
   const batch = writeBatch(db);
 
@@ -78,13 +82,14 @@ export async function assignOnboardingFlowToEmployee(
     employeeFlowRef,
     {
       flowId,
+      templateFlowId: flowId,
+      employeeId,
       name: flowData.name,
       type: 'primary',
       milestones,
       assignedAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     },
-    { merge: true },
   );
 
   batch.set(
@@ -93,6 +98,14 @@ export async function assignOnboardingFlowToEmployee(
       onboarding: {
         activeFlowIds: [flowId],
         primaryFlowId: flowId,
+        progress: {
+          completed: 0,
+          total: totalTasks,
+          percent: 0,
+          currentMilestone:
+            totalTasks === 0 ? 'No tasks' : milestones[0]?.title ?? 'Not started',
+          updatedAt: serverTimestamp(),
+        },
       },
     },
     { merge: true },

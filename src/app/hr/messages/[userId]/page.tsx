@@ -116,10 +116,10 @@ export default function MessagePage() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-120px)] p-4">
+    <div className="flex flex-col h-[calc(100vh-120px)] rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950">
       {/* Header */}
-      <div className="border-b pb-3 mb-3">
-        <h1 className="text-xl font-semibold">
+      <div className="border-b border-slate-200 pb-3 mb-3 dark:border-slate-800">
+        <h1 className="text-xl font-semibold text-slate-950 dark:text-white">
           {userData?.name || 'Loading...'}
         </h1>
       </div>
@@ -137,7 +137,7 @@ export default function MessagePage() {
               className={`px-4 py-2 rounded-xl text-sm ${
                 msg.senderId === user?.uid
                   ? 'bg-[#00ACC1] text-white'
-                  : 'bg-gray-100'
+                  : 'bg-slate-100 text-slate-900 dark:bg-slate-900 dark:text-slate-100'
               }`}
             >
               {msg.text}
@@ -147,13 +147,13 @@ export default function MessagePage() {
       </div>
 
       {/* Input */}
-      <div className="border-t pt-3 mt-3 flex gap-2">
+      <div className="border-t border-slate-200 pt-3 mt-3 flex gap-2 dark:border-slate-800">
         <input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Type a message..."
-          className="flex-1 px-3 py-2 border rounded-lg text-sm focus:outline-none"
+          className="flex-1 px-3 py-2 border border-slate-300 rounded-lg bg-white text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#00ACC1] dark:border-slate-700 dark:bg-slate-900 dark:text-white"
         />
 
         <button

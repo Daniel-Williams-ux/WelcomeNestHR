@@ -119,6 +119,21 @@ export function useEmployeeOnboarding(flowId: string) {
          completed: t.completed === true,
        })),
      );
+     const completedCount = tasks.filter((task: any) => task.completed).length;
+     const totalCount = tasks.length;
+     const nextTask = tasks.find((task: any) => !task.completed);
+
+     await updateDoc(doc(db, 'companies', companyId, 'employees', employeeId), {
+       'onboarding.progress': {
+         completed: completedCount,
+         total: totalCount,
+         percent:
+           totalCount === 0 ? 0 : Math.round((completedCount / totalCount) * 100),
+         currentMilestone:
+           totalCount === 0 ? 'No tasks' : nextTask?.title ?? 'Complete',
+         updatedAt: serverTimestamp(),
+       },
+     });
 
      setSteps(tasks);
    },

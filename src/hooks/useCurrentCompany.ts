@@ -71,7 +71,7 @@ export function useCurrentCompany(user: any | null) {
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [user?.companyId]);
 
   return { companyId, company, loading, error };
 }

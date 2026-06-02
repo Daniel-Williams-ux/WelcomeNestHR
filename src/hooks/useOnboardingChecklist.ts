@@ -6,7 +6,6 @@ import { collection, getDocs, orderBy, query } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { createChecklistItem } from '@/lib/onboarding/createChecklistItem';
 import { useUserAccess } from '@/hooks/useUserAccess';
-import { useCurrentCompany } from '@/hooks/useCurrentCompany';
 
 export type ChecklistItem = {
   id: string;
@@ -20,14 +19,19 @@ export type OnboardingStep = ChecklistItem & {
 };
 
 export function useOnboardingChecklist(flowId: string) {
-  const { user, loading: userLoading } = useUserAccess();
-  const { companyId, loading: companyLoading } = useCurrentCompany(user);
+  const { companyId, loading: userLoading } = useUserAccess();
 
   const [items, setItems] = useState<ChecklistItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (userLoading || companyLoading || !companyId || !flowId) {
+    if (userLoading) {
+      setLoading(true);
+      return;
+    }
+
+    if (!companyId || !flowId) {
+      setItems([]);
       setLoading(false);
       return;
     }
@@ -64,7 +68,7 @@ export function useOnboardingChecklist(flowId: string) {
     }
 
     load();
-  }, [companyId, flowId, userLoading, companyLoading]);
+  }, [companyId, flowId, userLoading]);
 
   async function createItem(title: string, description?: string) {
     if (!companyId || !flowId || !title.trim()) return;
