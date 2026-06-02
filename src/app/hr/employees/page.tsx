@@ -264,6 +264,9 @@ export default function HREmployeesPage() {
                 <div className="font-semibold text-slate-950 dark:text-white">
                   {e.name}
                 </div>
+                <div className="text-sm text-slate-500 dark:text-slate-400">
+                  {e.email || 'No email on file'}
+                </div>
                 <div className="text-sm text-slate-600 dark:text-slate-300">
                   {e.title || '-'} · {e.department || '-'}
                 </div>
@@ -297,6 +300,7 @@ export default function HREmployeesPage() {
             <thead className="bg-slate-50 text-xs uppercase text-slate-600 dark:bg-slate-800 dark:text-slate-300">
               <tr>
                 <th className="px-4 py-3 text-left">Name</th>
+                <th className="px-4 py-3 text-left">Email</th>
                 <th className="px-4 py-3 text-left">Role</th>
                 <th className="px-4 py-3 text-left">Department</th>
                 <th className="px-4 py-3 text-left">Salary</th>
@@ -308,6 +312,9 @@ export default function HREmployeesPage() {
               {employees.map((e) => (
                 <tr key={e.id} className="border-t border-slate-100 transition hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/60">
                   <td className="px-4 py-3 font-medium text-slate-950 dark:text-white">{e.name}</td>
+                  <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
+                    {e.email || '-'}
+                  </td>
                   <td className="px-4 py-3">{e.title || '-'}</td>
                   <td className="px-4 py-3">{e.department || '-'}</td>
                   <td className="px-4 py-3">
