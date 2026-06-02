@@ -9,7 +9,7 @@ import { signOut } from 'firebase/auth';
 import { HRSidebar } from '@/components/dashboard/HRSidebar';
 import HRTopbar from '@/components/hr/HRTopbar';
 import { useAuthContext } from '@/components/AuthProvider';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import BellMenu from '@/components/dashboard/BellMenu';
 import { auth } from '@/lib/firebase';
 
@@ -17,9 +17,11 @@ export default function HRLayout({ children }: { children: ReactNode }) {
 
   const { user, role, isTrialExpired, loading } = useAuthContext();
   const router = useRouter();
+  const pathname = usePathname();
   const { resolvedTheme, setTheme } = useTheme();
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [navigatingTo, setNavigatingTo] = useState<string | null>(null);
 
   useEffect(() => {
     if (loading) return;
@@ -43,6 +45,18 @@ export default function HRLayout({ children }: { children: ReactNode }) {
     }
   }, [isTrialExpired, loading, router]);
 
+  useEffect(() => {
+    if (!navigatingTo) return;
+
+    const isCurrentRoute =
+      pathname === navigatingTo ||
+      (navigatingTo !== '/hr' && pathname.startsWith(`${navigatingTo}/`));
+
+    if (isCurrentRoute) {
+      setNavigatingTo(null);
+    }
+  }, [navigatingTo, pathname]);
+
   if (loading || !user || role !== 'hr') {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50 text-sm text-slate-600">
@@ -58,6 +72,16 @@ export default function HRLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-[#080f1a] dark:text-slate-100">
+      {navigatingTo && (
+        <div
+          className="fixed inset-x-0 top-0 z-[70] h-1 overflow-hidden bg-cyan-100/70 dark:bg-cyan-950/60"
+          role="status"
+          aria-label="Loading page"
+        >
+          <div className="h-full w-1/2 animate-pulse rounded-r-full bg-[#00ACC1] shadow-[0_0_18px_rgba(0,172,193,0.65)]" />
+        </div>
+      )}
+
       {sidebarOpen && (
         <button
           type="button"
@@ -77,7 +101,12 @@ export default function HRLayout({ children }: { children: ReactNode }) {
         `}
         aria-label="HR sidebar"
       >
-        <HRSidebar onNavigate={() => setSidebarOpen(false)} />
+        <HRSidebar
+          onNavigate={(href) => {
+            setNavigatingTo(href);
+            setSidebarOpen(false);
+          }}
+        />
       </aside>
 
       <div className="flex min-h-screen flex-col md:ml-64">
@@ -123,7 +152,13 @@ export default function HRLayout({ children }: { children: ReactNode }) {
           <HRTopbar />
         </div>
 
-        <main id="main-content" className="w-full flex-1 p-4 md:p-6 lg:p-8">
+        <main
+          id="main-content"
+          className={`w-full flex-1 p-4 md:p-6 lg:p-8 ${
+            navigatingTo ? 'cursor-progress' : ''
+          }`}
+          aria-busy={Boolean(navigatingTo)}
+        >
           {children}
         </main>
       </div>

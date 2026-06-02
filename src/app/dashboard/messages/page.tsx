@@ -6,13 +6,14 @@ import {
   collection,
   doc,
   getDoc,
+  limit,
   onSnapshot,
   query,
   orderBy,
+  where,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
-import { getEmployeesForOrg } from '@/lib/collaborate';
 
 type Conversation = {
   id: string;
@@ -25,33 +26,30 @@ type Conversation = {
 export default function MessagesPage() {
   const { companyId, user } = useUserAccess();
   const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [employees, setEmployees] = useState<any[]>([]);
   const [userNames, setUserNames] = useState<Record<string, string>>({});
   const router = useRouter();
 
   useEffect(() => {
     if (!companyId || !user) return;
+    const uid = user.uid;
 
     let unsubscribe: any;
 
     const setup = async () => {
-      // 1. Load employees (for names)
-      const emps = await getEmployeesForOrg(companyId);
-      setEmployees(emps);
-
-      // 2. Real-time conversations
       const ref = collection(db, 'companies', companyId, 'conversations');
 
-      const q = query(ref, orderBy('updatedAt', 'desc'));
+      const q = query(
+        ref,
+        where('participants', 'array-contains', uid),
+        orderBy('updatedAt', 'desc'),
+        limit(50),
+      );
 
       unsubscribe = onSnapshot(q, (snapshot) => {
-        const data = snapshot.docs.map((doc) => ({
+        const mine = snapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
         })) as Conversation[];
-
-        // filter only mine
-        const mine = data.filter((c) => c.participants?.includes(user.uid));
 
         setConversations(mine);
       });
@@ -62,11 +60,10 @@ export default function MessagesPage() {
     return () => {
       if (unsubscribe) unsubscribe();
     };
-  }, [companyId, user]);
+  }, [companyId, user?.uid]);
 
   const getName = (uid: string) => {
-    const found = employees.find((emp) => emp.uid === uid);
-    return found?.name || userNames[uid] || uid || 'Unknown User';
+    return userNames[uid] || uid || 'Unknown User';
   };
 
   useEffect(() => {

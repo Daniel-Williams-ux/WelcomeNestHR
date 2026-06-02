@@ -35,6 +35,61 @@ export interface Employee {
 
 type SortOption = { field: 'createdAt' | 'name'; direction: 'asc' | 'desc' };
 
+export function useEmployeeCount(companyId?: string) {
+  const [totalEmployees, setTotalEmployees] = useState<number | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const validCompanyId = !!(
+      companyId &&
+      companyId.trim().length > 0 &&
+      companyId.trim().toLowerCase() !== 'null' &&
+      companyId.trim().toLowerCase() !== 'undefined'
+    );
+
+    if (!validCompanyId) {
+      setTotalEmployees(null);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
+    async function loadCount() {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const q = query(collection(db, 'companies', companyId!, 'employees'));
+        const snap = await getCountFromServer(q);
+
+        if (!cancelled) {
+          setTotalEmployees(snap.data().count ?? 0);
+        }
+      } catch (err) {
+        console.error('useEmployeeCount error', err);
+        if (!cancelled) {
+          setTotalEmployees(null);
+          setError('Failed to load employee count.');
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    loadCount();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [companyId]);
+
+  return { totalEmployees, loading, error };
+}
+
 export function useEmployees(companyId?: string, pageSize = 10) {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState<boolean>(false);

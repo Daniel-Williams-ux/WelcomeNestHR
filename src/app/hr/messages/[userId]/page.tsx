@@ -3,7 +3,7 @@
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useUserAccess } from '@/hooks/useUserAccess';
-import { getEmployeesForOrg } from '@/lib/collaborate';
+import { getEmployeeForOrgByUid } from '@/lib/collaborate';
 import {
   collection,
   addDoc,
@@ -35,8 +35,7 @@ export default function MessagePage() {
     const fetchUser = async () => {
       if (!companyId || !userId) return;
 
-      const employees = await getEmployeesForOrg(companyId);
-      const found = employees.find((emp: any) => emp.uid === userId);
+      const found = await getEmployeeForOrgByUid(companyId, userId);
 
       if (found) setUserData(found);
     };

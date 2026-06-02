@@ -193,3 +193,23 @@ export async function getEmployeesForOrg(companyId: string): Promise<Collaborate
 
   return employees;
 }
+
+export async function getEmployeeForOrgByUid(
+  companyId: string,
+  uid: string,
+): Promise<CollaborateEmployee | null> {
+  const ref = collection(db, `companies/${companyId}/employees`);
+  const q = query(ref, where('uid', '==', uid), limit(1));
+  const snap = await getDocs(q);
+
+  if (snap.empty) {
+    return null;
+  }
+
+  const docSnap = snap.docs[0];
+
+  return {
+    id: docSnap.id,
+    ...docSnap.data(),
+  } as CollaborateEmployee;
+}

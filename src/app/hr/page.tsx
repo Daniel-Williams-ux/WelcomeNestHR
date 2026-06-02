@@ -11,8 +11,8 @@ import {
   WalletCards,
 } from 'lucide-react';
 import { useHRSession } from '@/hooks/useHRSession';
-import { useEmployees } from '@/hooks/useEmployees';
-import { useHROnboardingFlows } from '@/hooks/useHROnboardingFlows';
+import { useEmployeeCount } from '@/hooks/useEmployees';
+import { useHROnboardingFlowCount } from '@/hooks/useHROnboardingFlows';
 
 const quickActions = [
   {
@@ -37,11 +37,8 @@ const quickActions = [
 
 export default function HRPage() {
   const { companyId, hasCompany } = useHRSession();
-  const { totalEmployees, loading: employeesLoading } = useEmployees(
-    companyId || '',
-    1,
-  );
-  const { flows, loading: flowsLoading } = useHROnboardingFlows();
+  const { totalEmployees, loading: employeesLoading } = useEmployeeCount(companyId || '');
+  const { totalFlows, loading: flowsLoading } = useHROnboardingFlowCount(companyId);
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
@@ -83,7 +80,7 @@ export default function HRPage() {
         />
         <StatCard
           title="Onboarding flows"
-          value={flowsLoading ? '...' : flows.length}
+          value={flowsLoading ? '...' : totalFlows ?? 0}
           description="Reusable HR journeys"
           icon={<BookOpenCheck size={20} aria-hidden="true" />}
         />

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import {
   collection,
   getDocs,
+  limit,
   onSnapshot,
   orderBy,
   query,
@@ -45,6 +46,7 @@ export default function HRPayrollPage() {
     const q = query(
       collection(db, 'companies', companyId, 'payrollRuns'),
       orderBy('createdAt', 'desc'),
+      limit(10),
     );
 
     return onSnapshot(q, (snap) => {
@@ -89,7 +91,7 @@ export default function HRPayrollPage() {
       console.error('Payroll readiness check failed:', error);
       setPayrollSetupIssue('Could not verify payroll readiness.');
     });
-  }, [companyId, runs]);
+  }, [companyId]);
 
   if (authLoading) return null;
 

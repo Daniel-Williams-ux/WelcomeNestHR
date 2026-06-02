@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, getDocs, orderBy, query } from 'firebase/firestore';
+import { collection, getCountFromServer, getDocs, orderBy, query } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useHRSession } from './useHRSession';
 
@@ -11,6 +11,55 @@ export type OnboardingFlow = {
   description?: string | null;
   isActive: boolean;
 };
+
+export function useHROnboardingFlowCount(companyId?: string | null) {
+  const [totalFlows, setTotalFlows] = useState<number | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!companyId) {
+      setTotalFlows(null);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
+    async function loadCount() {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const q = query(collection(db, 'companies', companyId!, 'onboardingFlows'));
+        const snap = await getCountFromServer(q);
+
+        if (!cancelled) {
+          setTotalFlows(snap.data().count ?? 0);
+        }
+      } catch (err) {
+        console.error('[useHROnboardingFlowCount] failed:', err);
+        if (!cancelled) {
+          setTotalFlows(null);
+          setError('Unable to load onboarding flow count.');
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    loadCount();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [companyId]);
+
+  return { totalFlows, loading, error };
+}
 
 export function useHROnboardingFlows() {
   const { companyId } = useHRSession();

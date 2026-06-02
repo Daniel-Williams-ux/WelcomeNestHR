@@ -21,6 +21,7 @@ import AIAssistantPanel from "@/components/dashboard/AIAssistantPanel";
 type SidebarProps = {
   sidebarOpen: boolean;
   setSidebarOpen: (open: boolean) => void;
+  onNavigate?: (path: string) => void;
 };
 
 const navItems = [
@@ -56,14 +57,17 @@ const navItems = [
 const isActivePath = (pathname: string, path: string) =>
   pathname === path || pathname.startsWith(`${path}/`);
 
-export function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
+export function Sidebar({ sidebarOpen, setSidebarOpen, onNavigate }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [aiOpen, setAiOpen] = useState(false);
+  const [pendingPath, setPendingPath] = useState<string | null>(null);
 
   useEffect(() => {
-    navItems.forEach((item) => router.prefetch(item.path));
-  }, [router]);
+    if (pendingPath && isActivePath(pathname, pendingPath)) {
+      setPendingPath(null);
+    }
+  }, [pathname, pendingPath]);
 
   return (
     <>
@@ -77,14 +81,20 @@ export function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
         </div>
         <nav className="space-y-2" aria-label="Employee navigation">
           {navItems.map((item) => {
-            const active = isActivePath(pathname, item.path);
+            const active = pendingPath
+              ? item.path === pendingPath
+              : isActivePath(pathname, item.path);
 
             return (
               <Link
                 key={item.name}
                 href={item.path}
-                prefetch
+                prefetch={false}
                 aria-current={active ? 'page' : undefined}
+                onClick={() => {
+                  setPendingPath(item.path);
+                  onNavigate?.(item.path);
+                }}
                 onMouseEnter={() => router.prefetch(item.path)}
                 onFocus={() => router.prefetch(item.path)}
                 className={cn(
@@ -125,19 +135,25 @@ export function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
           </div>
           <nav className="space-y-2" aria-label="Employee navigation">
             {navItems.map((item) => {
-              const active = isActivePath(pathname, item.path);
+              const active = pendingPath
+                ? item.path === pendingPath
+                : isActivePath(pathname, item.path);
 
               return (
                 <Link
                   key={item.name}
                   href={item.path}
-                  prefetch
+                  prefetch={false}
                   aria-current={active ? 'page' : undefined}
                   className={cn(
                     "flex min-h-11 items-center gap-2 px-3 py-2 rounded-lg text-cyan-50 transition-all duration-200 hover:bg-white/10 hover:text-white focus:outline-none focus:ring-2 focus:ring-cyan-200",
                     active && "bg-white text-[#004d59] shadow-sm hover:bg-white"
                   )}
-                  onClick={() => setSidebarOpen(false)}
+                  onClick={() => {
+                    setPendingPath(item.path);
+                    setSidebarOpen(false);
+                    onNavigate?.(item.path);
+                  }}
                   onMouseEnter={() => router.prefetch(item.path)}
                   onFocus={() => router.prefetch(item.path)}
                 >

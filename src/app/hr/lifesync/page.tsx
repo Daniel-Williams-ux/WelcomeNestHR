@@ -1,20 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import {
-  collection,
-  query,
-  limit,
-  onSnapshot,
-  orderBy,
-  getDocs,
-} from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 import { useUserAccess } from '@/hooks/useUserAccess';
+import { auth } from '@/lib/firebase';
 
-type TimestampLike = {
-  toDate?: () => Date;
-};
+type TimestampLike = { toDate?: () => Date } | string | null;
 
 type MoodEntry = {
   id: string;
@@ -86,8 +76,12 @@ function moodScore(mood: string) {
 }
 
 function formatDate(value?: TimestampLike) {
-  const date = value?.toDate?.();
-  return date ? date.toLocaleString() : 'Recently';
+  const date =
+    typeof value === 'string'
+      ? new Date(value)
+      : value?.toDate?.();
+
+  return date && !Number.isNaN(date.getTime()) ? date.toLocaleString() : 'Recently';
 }
 
 function displayName(entry: { visibility?: string; employeeName?: string }) {
@@ -96,170 +90,104 @@ function displayName(entry: { visibility?: string; employeeName?: string }) {
     : entry.employeeName || 'Employee';
 }
 
-async function loadLegacyLifeSyncEntries(companyId: string) {
-  const employeesSnap = await getDocs(collection(db, 'companies', companyId, 'employees'));
-  const employees = employeesSnap.docs
-    .map((employeeDoc) => {
-      const data = employeeDoc.data();
-      return {
-        id: employeeDoc.id,
-        uid: data.uid as string | undefined,
-        name: (data.name || data.fullName || data.email || 'Employee') as string,
-      };
-    })
-    .filter((employee) => employee.uid)
-    .slice(0, 50);
-
-  const moodResults = await Promise.all(
-    employees.map(async (employee) => {
-      const snap = await getDocs(
-        query(
-          collection(db, 'users', employee.uid!, 'lifesync', 'moodTracker', 'entries'),
-          orderBy('createdAt', 'desc'),
-          limit(3),
-        ),
-      );
-
-      return snap.docs
-        .map((entryDoc) => {
-          const data = entryDoc.data();
-          return {
-            id: `legacy-mood-${entryDoc.id}`,
-            mood: String(data.mood ?? ''),
-            note: data.visibility === 'anonymous_hr' ? '' : data.note,
-            userId: employee.uid,
-            employeeName:
-              data.visibility === 'anonymous_hr' ? undefined : employee.name,
-            confidence: data.confidence,
-            supported: data.supported,
-            connection: data.connection,
-            workload: data.workload,
-            visibility: data.visibility ?? 'hr_visible',
-            followUpRequested: data.followUpRequested,
-            urgentSupport: data.urgentSupport,
-            createdAt: data.updatedAt ?? data.createdAt,
-          } as MoodEntry;
-        })
-        .filter((entry) =>
-          ['hr_visible', 'anonymous_hr'].includes(String(entry.visibility)),
-        );
-    }),
-  );
-
-  const wellnessResults = await Promise.all(
-    employees.map(async (employee) => {
-      const snap = await getDocs(
-        query(
-          collection(db, 'users', employee.uid!, 'lifesync', 'wellnessLog', 'entries'),
-          orderBy('createdAt', 'desc'),
-          limit(3),
-        ),
-      );
-
-      return snap.docs
-        .map((entryDoc) => {
-          const data = entryDoc.data();
-          return {
-            id: `legacy-wellness-${entryDoc.id}`,
-            text: data.visibility === 'anonymous_hr' ? '' : String(data.text ?? ''),
-            category: data.category,
-            visibility: data.visibility ?? 'hr_visible',
-            followUpRequested: data.followUpRequested,
-            userId: employee.uid,
-            employeeName:
-              data.visibility === 'anonymous_hr' ? undefined : employee.name,
-            createdAt: data.updatedAt ?? data.createdAt,
-          } as WellnessEntry;
-        })
-        .filter((entry) =>
-          ['hr_visible', 'anonymous_hr'].includes(String(entry.visibility)),
-        );
-    }),
-  );
-
-  return {
-    moods: moodResults.flat().filter((entry) => entry.mood),
-    wellness: wellnessResults.flat(),
-  };
-}
-
 export default function HRLifeSyncPage() {
   const { user, companyId } = useUserAccess();
 
   const [moods, setMoods] = useState<MoodEntry[]>([]);
   const [wellness, setWellness] = useState<WellnessEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!user || !companyId) return;
+    if (!user || !companyId) {
+      setLoading(false);
+      return;
+    }
+
     let cancelled = false;
 
-    const feedQuery = query(
-      collection(db, 'companies', companyId, 'lifesyncEntries'),
-      orderBy('updatedAt', 'desc'),
-      limit(100),
-    );
+    async function loadFeed() {
+      try {
+        setLoading(true);
+        setError('');
 
-    const unsubscribe = onSnapshot(feedQuery, async (snap) => {
-      const entries = snap.docs.map(
-        (entryDoc) =>
-          ({
-            id: entryDoc.id,
-            ...entryDoc.data(),
-          }) as CompanyLifeSyncEntry,
-      );
+        const currentUser = auth.currentUser;
+        const token = await currentUser?.getIdToken(true);
 
-      if (entries.length === 0) {
-        try {
-          const legacy = await loadLegacyLifeSyncEntries(companyId);
-          if (!cancelled) {
-            setMoods(legacy.moods);
-            setWellness(legacy.wellness);
-          }
-        } catch (error) {
-          console.error('Failed to load legacy LifeSync entries:', error);
+        if (!token) {
+          throw new Error('You need to be signed in to view LifeSync insights.');
         }
-        return;
+
+        const response = await fetch('/api/hr/lifesync/feed', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        const payload = await response.json();
+
+        if (!response.ok) {
+          throw new Error(payload.error || 'Unable to load LifeSync insights.');
+        }
+
+        const entries = (payload.entries || []) as CompanyLifeSyncEntry[];
+
+        if (cancelled) return;
+
+        setMoods(
+          entries
+            .filter((entry) => entry.entryType === 'mood' && entry.mood)
+            .map((entry) => ({
+              id: entry.id,
+              mood: String(entry.mood),
+              note: entry.note,
+              userId: entry.userId,
+              employeeName: entry.employeeName ?? undefined,
+              confidence: entry.confidence,
+              supported: entry.supported,
+              connection: entry.connection,
+              workload: entry.workload,
+              visibility: entry.visibility,
+              followUpRequested: entry.followUpRequested,
+              urgentSupport: entry.urgentSupport,
+              createdAt: entry.updatedAt ?? entry.createdAt,
+            })),
+        );
+
+        setWellness(
+          entries
+            .filter((entry) => entry.entryType === 'wellness')
+            .map((entry) => ({
+              id: entry.id,
+              text: String(entry.text ?? ''),
+              category: entry.category,
+              visibility: entry.visibility,
+              followUpRequested: entry.followUpRequested,
+              userId: entry.userId,
+              employeeName: entry.employeeName ?? undefined,
+              createdAt: entry.updatedAt ?? entry.createdAt,
+            })),
+        );
+      } catch (loadError) {
+        console.error('Failed to load HR LifeSync feed:', loadError);
+        if (!cancelled) {
+          setError(
+            loadError instanceof Error
+              ? loadError.message
+              : 'Unable to load LifeSync insights.',
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
+    }
 
-      setMoods(
-        entries
-          .filter((entry) => entry.entryType === 'mood' && entry.mood)
-          .map((entry) => ({
-            id: entry.id,
-            mood: String(entry.mood),
-            note: entry.note,
-            userId: entry.userId,
-            employeeName: entry.employeeName ?? undefined,
-            confidence: entry.confidence,
-            supported: entry.supported,
-            connection: entry.connection,
-            workload: entry.workload,
-            visibility: entry.visibility,
-            followUpRequested: entry.followUpRequested,
-            urgentSupport: entry.urgentSupport,
-            createdAt: entry.updatedAt ?? entry.createdAt,
-          })),
-      );
-
-      setWellness(
-        entries
-          .filter((entry) => entry.entryType === 'wellness')
-          .map((entry) => ({
-            id: entry.id,
-            text: String(entry.text ?? ''),
-            category: entry.category,
-            visibility: entry.visibility,
-            followUpRequested: entry.followUpRequested,
-            userId: entry.userId,
-            employeeName: entry.employeeName ?? undefined,
-            createdAt: entry.updatedAt ?? entry.createdAt,
-          })),
-      );
-    });
+    loadFeed();
 
     return () => {
       cancelled = true;
-      unsubscribe();
     };
   }, [companyId, user]);
 
@@ -329,6 +257,18 @@ export default function HRLifeSyncPage() {
         <p className="text-sm font-semibold text-[#006e7f]">People insight summary</p>
         <p className="mt-1 text-sm text-gray-700">{trendSummary}</p>
       </div>
+
+      {loading && (
+        <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-800 shadow-sm">
+          Loading LifeSync insights...
+        </div>
+      )}
+
+      {error && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800 shadow-sm">
+          {error}
+        </div>
+      )}
 
       {supportRequests.length > 0 && (
         <div className="bg-white border rounded-xl p-4 shadow-sm">

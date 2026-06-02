@@ -5,7 +5,7 @@ import DashboardTopbar from '@/components/dashboard/DashboardTopbar';
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import { useUserAccess } from '@/hooks/useUserAccess';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { LogOut, Menu, Moon, Sun } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { signOut } from 'firebase/auth';
@@ -18,8 +18,10 @@ export default function DashboardLayout({
   children: ReactNode;
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [navigatingTo, setNavigatingTo] = useState<string | null>(null);
   const { user, role, loading } = useUserAccess();
   const router = useRouter();
+  const pathname = usePathname();
   const { resolvedTheme, setTheme } = useTheme();
 
   useEffect(() => {
@@ -36,6 +38,14 @@ export default function DashboardLayout({
     }
   }, [loading, role, router, user]);
 
+  useEffect(() => {
+    if (!navigatingTo) return;
+
+    if (pathname === navigatingTo || pathname.startsWith(`${navigatingTo}/`)) {
+      setNavigatingTo(null);
+    }
+  }, [navigatingTo, pathname]);
+
   if (loading || !user || role !== 'employee') {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50 text-sm text-slate-600 dark:bg-slate-950 dark:text-slate-300">
@@ -51,6 +61,16 @@ export default function DashboardLayout({
 
   return (
     <div className="flex min-h-screen bg-slate-50 text-slate-900 dark:bg-[#080f1a] dark:text-slate-100">
+      {navigatingTo && (
+        <div
+          className="fixed inset-x-0 top-0 z-[70] h-1 overflow-hidden bg-cyan-100/70 dark:bg-cyan-950/60"
+          role="status"
+          aria-label="Loading page"
+        >
+          <div className="h-full w-1/2 animate-pulse rounded-r-full bg-[#00ACC1] shadow-[0_0_18px_rgba(0,172,193,0.65)]" />
+        </div>
+      )}
+
       {sidebarOpen && (
         <button
           type="button"
@@ -60,7 +80,11 @@ export default function DashboardLayout({
         />
       )}
 
-      <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
+      <Sidebar
+        sidebarOpen={sidebarOpen}
+        setSidebarOpen={setSidebarOpen}
+        onNavigate={setNavigatingTo}
+      />
 
       <div className="flex min-h-screen flex-1 flex-col md:ml-64">
         <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-slate-200 bg-white/95 p-3 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-950/95 md:hidden">
@@ -102,7 +126,13 @@ export default function DashboardLayout({
         </header>
 
         <DashboardTopbar />
-        <main id="main-content" className="flex-1 p-4 md:p-6 lg:p-8">{children}</main>
+        <main
+          id="main-content"
+          className={`flex-1 p-4 md:p-6 lg:p-8 ${navigatingTo ? 'cursor-progress' : ''}`}
+          aria-busy={Boolean(navigatingTo)}
+        >
+          {children}
+        </main>
       </div>
     </div>
   );

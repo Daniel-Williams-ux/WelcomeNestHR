@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUserAccess } from '@/hooks/useUserAccess';
 import { db } from '@/lib/firebase';
-import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
+import { collection, limit, onSnapshot, orderBy, query, where } from 'firebase/firestore';
 import { getEmployeesForOrg, type CollaborateEmployee } from '@/lib/collaborate';
 
 type Conversation = {
@@ -34,33 +34,23 @@ export default function HRMessagesPage() {
 
     const q = query(
       collection(db, 'companies', companyId, 'conversations'),
+      where('participants', 'array-contains', uid),
       orderBy('updatedAt', 'desc'),
+      limit(50),
     );
 
     const unsub = onSnapshot(q, (snapshot) => {
-      const data: Conversation[] = [];
-
-      snapshot.forEach((doc) => {
+      const data = snapshot.docs.map((doc) => {
         const convo = doc.data() as Conversation;
-
         const participants = Object.values(convo.participants || {}).map((p) =>
           String(p).trim(),
         );
 
-        const normalize = (val: any) =>
-          String(val).normalize('NFC').replace(/\s+/g, '').trim();
-
-        const cleanUid = normalize(uid);
-
-        const match = participants.some((p) => normalize(p) === cleanUid);
-
-        if (match) {
-          data.push({
-            ...convo,
-            participants, // normalized array
-            id: doc.id,
-          });
-        }
+        return {
+          ...convo,
+          participants,
+          id: doc.id,
+        };
       });
 
       setConversations(data);

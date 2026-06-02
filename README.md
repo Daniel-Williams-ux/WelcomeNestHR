@@ -16,6 +16,10 @@ The goal is to give companies a more human operating system for onboarding and e
 - **HR:** Manages employees, onboarding flows, compliance, payroll settings, announcements, messaging, LifeSync insights, and Primer progress.
 - **Employee:** Completes onboarding, views payslips, uses LifeSync, follows Primer goals, receives announcements, and communicates with HR.
 
+## User Documentation
+
+- [WelcomeNestHR User Guide](docs/user-guide.md)
+
 ## Key Modules
 
 - **Smart Onboarding:** Company-specific onboarding flows, checklists, milestones, and employee task tracking.

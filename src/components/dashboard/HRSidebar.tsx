@@ -31,14 +31,20 @@ const navItems = [
   { name: 'LifeSync', href: '/hr/lifesync', icon: HeartPulse },
 ];
 
-export function HRSidebar({ onNavigate }: { onNavigate?: () => void }) {
+const isActivePath = (pathname: string, href: string) =>
+  pathname === href || (href !== '/hr' && pathname.startsWith(`${href}/`));
+
+export function HRSidebar({ onNavigate }: { onNavigate?: (href: string) => void }) {
   const pathname = usePathname();
   const router = useRouter();
   const [aiOpen, setAiOpen] = useState(false);
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
 
   useEffect(() => {
-    navItems.forEach((item) => router.prefetch(item.href));
-  }, [router]);
+    if (pendingHref && isActivePath(pathname, pendingHref)) {
+      setPendingHref(null);
+    }
+  }, [pathname, pendingHref]);
 
   return (
     <>
@@ -52,17 +58,20 @@ export function HRSidebar({ onNavigate }: { onNavigate?: () => void }) {
 
       <nav className="flex-1 space-y-1 overflow-y-auto" aria-label="HR navigation">
         {navItems.map((item) => {
-          const active =
-            pathname === item.href ||
-            (item.href !== '/hr' && pathname.startsWith(`${item.href}/`));
+          const active = pendingHref
+            ? item.href === pendingHref
+            : isActivePath(pathname, item.href);
           const Icon = item.icon;
 
           return (
             <Link
               key={item.href}
               href={item.href}
-              prefetch
-              onClick={onNavigate}
+              prefetch={false}
+              onClick={() => {
+                setPendingHref(item.href);
+                onNavigate?.(item.href);
+              }}
               onMouseEnter={() => router.prefetch(item.href)}
               onFocus={() => router.prefetch(item.href)}
               aria-current={active ? 'page' : undefined}
