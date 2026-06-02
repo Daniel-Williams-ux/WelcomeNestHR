@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, onSnapshot, getDocs } from 'firebase/firestore';
+import { collection, doc, getDoc, onSnapshot, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useUserAccess } from '@/hooks/useUserAccess';
 
@@ -32,48 +32,84 @@ export default function HROnboardingProgressPage() {
         for (const empDoc of snap.docs) {
           const empData = empDoc.data();
           const employeeId = empDoc.id;
+          const cachedProgress = empData.onboarding?.progress;
 
           let percent = 0;
           let completed = 0;
           let total = 0;
           let milestone = 'Preboarding';
 
-          const flowsRef = collection(
-            db,
-            'companies',
-            companyId,
-            'employees',
-            employeeId,
-            'onboardingFlows',
-          );
+          if (
+            cachedProgress &&
+            typeof cachedProgress.completed === 'number' &&
+            typeof cachedProgress.total === 'number'
+          ) {
+            completed = cachedProgress.completed;
+            total = cachedProgress.total;
+            percent =
+              typeof cachedProgress.percent === 'number'
+                ? cachedProgress.percent
+                : total > 0
+                  ? Math.round((completed / total) * 100)
+                  : 0;
+            milestone = cachedProgress.currentMilestone ?? 'Progress updated';
+          } else {
+            const primaryFlowId = empData.onboarding?.primaryFlowId;
+            let flowData: any | null = null;
 
-          const flowsSnap = await getDocs(flowsRef);
+            if (primaryFlowId) {
+              const flowSnap = await getDoc(
+                doc(
+                  db,
+                  'companies',
+                  companyId,
+                  'employees',
+                  employeeId,
+                  'onboardingFlows',
+                  primaryFlowId,
+                ),
+              );
+              flowData = flowSnap.exists() ? flowSnap.data() : null;
+            }
 
-          if (!flowsSnap.empty) {
-            const flowData = flowsSnap.docs[0].data() as any;
+            if (!flowData) {
+              const flowsRef = collection(
+                db,
+                'companies',
+                companyId,
+                'employees',
+                employeeId,
+                'onboardingFlows',
+              );
 
-            const milestones = flowData.milestones ?? [];
-            const tasks = milestones.flatMap((m: any) => m.tasks ?? []);
+              const flowsSnap = await getDocs(flowsRef);
+              flowData = flowsSnap.docs[0]?.data() ?? null;
+            }
 
-            total = tasks.length;
+            if (flowData) {
+              const milestones = flowData.milestones ?? [];
+              const tasks = milestones.flatMap((m: any) => m.tasks ?? []);
 
-            completed = tasks.filter((t: any) => t.completed === true).length;
+              total = tasks.length;
 
-            percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+              completed = tasks.filter((t: any) => t.completed === true).length;
 
-            const activeMilestone = milestones.find((m: any) =>
-              (m.tasks ?? []).some((t: any) => !t.completed),
-            );
+              percent = total > 0 ? Math.round((completed / total) * 100) : 0;
 
-            const labels = [
-              'Preboarding',
-              'Day 1',
-              'Week 1',
-              '30 Days',
-              'Beyond',
-            ];
+              const activeMilestone = milestones.find((m: any) =>
+                (m.tasks ?? []).some((t: any) => !t.completed),
+              );
 
-            milestone = labels[activeMilestone?.order ?? 4] ?? 'Beyond';
+              const labels = [
+                'Preboarding',
+                'Day 1',
+                'Week 1',
+                '30 Days',
+                'Beyond',
+              ];
+
+              milestone = labels[activeMilestone?.order ?? 4] ?? 'Beyond';
+            }
           }
 
           list.push({

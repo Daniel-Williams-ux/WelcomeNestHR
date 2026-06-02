@@ -13,6 +13,15 @@ type Employee = {
   uid?: string;
   name: string;
   title?: string;
+  primerProgress?: {
+    completed?: number;
+    total?: number;
+    percent?: number;
+    xp?: number;
+    level?: number;
+    levelName?: string;
+    badgeCount?: number;
+  };
 };
 
 type Goal = {
@@ -81,6 +90,7 @@ export default function HRPrimerPage() {
             uid: data.uid || undefined,
             name: data.name || data.fullName || data.email || 'Unnamed employee',
             title: data.title,
+            primerProgress: data.primer?.progress,
           };
         });
 
@@ -108,8 +118,12 @@ export default function HRPrimerPage() {
           const completed = userGoals.filter(
             (g) => g.status === 'completed',
           ).length;
+          const cachedProgress = employee.primerProgress;
 
-          const progress = total === 0 ? 0 : (completed / total) * 100;
+          const progress =
+            total === 0
+              ? cachedProgress?.percent ?? 0
+              : (completed / total) * 100;
           const gamification = calculatePrimerGamification(userGoals);
 
           return {
@@ -117,13 +131,15 @@ export default function HRPrimerPage() {
             userId: employee.uid || employee.id,
             name: employee.name,
             title: employee.title,
-            total,
-            completed,
+            total: total || cachedProgress?.total || 0,
+            completed: total ? completed : cachedProgress?.completed || 0,
             progress,
-            xp: gamification.xp,
-            level: gamification.level,
-            levelName: gamification.levelName,
-            badgeCount: gamification.badges.length,
+            xp: total ? gamification.xp : cachedProgress?.xp || 0,
+            level: total ? gamification.level : cachedProgress?.level || 1,
+            levelName:
+              total ? gamification.levelName : cachedProgress?.levelName || 'New Starter',
+            badgeCount:
+              total ? gamification.badges.length : cachedProgress?.badgeCount || 0,
           };
         });
 

@@ -19,6 +19,23 @@ import {
   getPrimerPhaseCelebrations,
 } from '@/lib/primerGamification';
 
+function buildPrimerProgressSummary(goals: any[]) {
+  const total = goals.length;
+  const completed = goals.filter((goal) => goal.status === 'completed').length;
+  const gamification = calculatePrimerGamification(goals);
+
+  return {
+    completed,
+    total,
+    percent: total === 0 ? 0 : Math.round((completed / total) * 100),
+    xp: gamification.xp,
+    level: gamification.level,
+    levelName: gamification.levelName,
+    badgeCount: gamification.badges.length,
+    updatedAt: serverTimestamp(),
+  };
+}
+
 export default function PrimerPage() {
   const { user, companyId, role, loading } = useAuthContext();
 
@@ -86,7 +103,8 @@ export default function PrimerPage() {
 
         if (empSnap.empty) return;
 
-        const employee = empSnap.docs[0].data();
+        const employeeDoc = empSnap.docs[0];
+        const employee = employeeDoc.data();
         
         const result = await createPrimerPlan({
           userId: employee.uid,
@@ -126,6 +144,9 @@ export default function PrimerPage() {
         const fetchedGoals = Array.from(uniqueGoalsByTemplate.values());
 
         setGoals(fetchedGoals);
+        await updateDoc(employeeDoc.ref, {
+          'primer.progress': buildPrimerProgressSummary(fetchedGoals),
+        });
         setInitialized(true);
       } catch (error) {
         console.error('Primer error:', error);
@@ -149,8 +170,7 @@ export default function PrimerPage() {
         updatedAt: serverTimestamp(),
       });
 
-      setGoals((prev) =>
-        prev.map((g) =>
+      const nextGoals = goals.map((g) =>
           g.id === goal.id
             ? {
                 ...g,
@@ -158,8 +178,21 @@ export default function PrimerPage() {
                 progress: newStatus === 'completed' ? 100 : 0,
               }
             : g,
-        ),
       );
+
+      setGoals(nextGoals);
+
+      if (user?.uid && companyId) {
+        const empRef = collection(db, `companies/${companyId}/employees`);
+        const empQuery = query(empRef, where('uid', '==', user.uid));
+        const empSnap = await getDocs(empQuery);
+
+        if (!empSnap.empty) {
+          await updateDoc(empSnap.docs[0].ref, {
+            'primer.progress': buildPrimerProgressSummary(nextGoals),
+          });
+        }
+      }
     } catch (error) {
       console.error('Error updating goal:', error);
     }

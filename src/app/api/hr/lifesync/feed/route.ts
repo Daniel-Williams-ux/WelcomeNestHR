@@ -110,7 +110,7 @@ async function loadLegacyEntries(companyId: string) {
       ]);
 
       const moodEntries = moodsSnap.docs
-        .map((doc) => {
+        .map((doc): ServerLifeSyncEntry | null => {
           const data = doc.data();
           const visibility = data.visibility ?? "hr_visible";
 
@@ -139,7 +139,7 @@ async function loadLegacyEntries(companyId: string) {
         .filter((entry): entry is ServerLifeSyncEntry => Boolean(entry));
 
       const wellnessEntries = wellnessSnap.docs
-        .map((doc) => {
+        .map((doc): ServerLifeSyncEntry | null => {
           const data = doc.data();
           const visibility = data.visibility ?? "hr_visible";
 
