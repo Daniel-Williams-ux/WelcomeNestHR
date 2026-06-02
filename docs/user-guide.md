@@ -214,3 +214,808 @@ For a new company workspace, HR should usually start in this order:
 8. Set up **Payroll** only after employee payroll information is ready.
 
 This order helps prevent empty dashboards and keeps employee setup organized.
+
+## 3. HR Employees Module
+
+The **Employees** module is where HR manages employee records. Most other HR workflows depend on employees being created first, so this is usually the first operational module HR should use after confirming the company workspace.
+
+### 3.1 What The Employees Module Contains
+
+The Employees module may include:
+
+- A list of company employees.
+- Employee names, email addresses, roles, departments, status, and job titles.
+- Search, filter, sort, or pagination controls.
+- A button or form to add a new employee.
+- Links to individual employee profiles.
+- Employee-specific setup areas such as payroll settings, onboarding status, or offboarding actions.
+
+### 3.2 How HR Uses Employees
+
+To create or invite an employee:
+
+1. Open **HR Dashboard**.
+2. Select **Employees** from the sidebar.
+3. Select the option to add or create an employee.
+4. Enter the employee's required details, such as name and email address.
+5. Save the employee record.
+6. Share or send the invitation link if the app provides one.
+
+After the employee accepts or completes setup, they should be able to log in and access their Employee Dashboard.
+
+### 3.3 Opening An Employee Profile
+
+To view or manage an employee:
+
+1. Open **Employees**.
+2. Find the employee in the list.
+3. Select the employee record.
+4. Review or update the employee details available in the profile.
+
+Use employee profiles carefully. Changes made here may affect onboarding, payroll, compliance, or dashboard access.
+
+### 3.4 Employee Module Prerequisites
+
+Before other workflows can work correctly, make sure:
+
+- The employee exists in the correct company workspace.
+- The employee email address is correct.
+- The employee has a linked user account after accepting an invitation.
+- The employee has the correct status, such as active or exited.
+- Any required payroll or onboarding setup has been completed.
+
+### 3.5 Common Employee Issues
+
+**Employee does not appear**
+
+Confirm that the employee was created under the correct company workspace and that filters or search terms are not hiding the record.
+
+**Employee cannot log in**
+
+Confirm that the employee is using the same email address used for the invitation or account setup.
+
+**Employee dashboard is empty**
+
+The employee may not have an assigned onboarding flow, compliance module, payslip, Primer goal, or message yet.
+
+**Invitation link does not work**
+
+Ask an administrator to confirm that the invitation is still valid or generate a new invitation.
+
+## 4. HR Onboarding Module
+
+The **Onboarding** module lets HR create structured onboarding journeys for employees. It is used to define what new hires should complete during their first days, weeks, or months.
+
+### 4.1 What The Onboarding Module Contains
+
+The Onboarding module may include:
+
+- Reusable onboarding flows.
+- Flow names and descriptions.
+- Milestones, tasks, or checklist items.
+- Options to create, edit, or assign flows.
+- Employee progress views.
+
+An onboarding flow is a template. HR can reuse it for multiple employees.
+
+### 4.2 How HR Creates An Onboarding Flow
+
+1. Open **HR Dashboard**.
+2. Select **Onboarding** from the sidebar.
+3. Choose the option to create a new onboarding flow.
+4. Add the flow name and description.
+5. Add milestones, checklist items, or tasks.
+6. Save the flow.
+
+Keep onboarding flows clear and practical. A good flow should tell the employee exactly what to do next.
+
+### 4.3 How HR Assigns Onboarding
+
+1. Open **Onboarding**.
+2. Choose the assign option if available.
+3. Select an employee.
+4. Select the onboarding flow.
+5. Confirm the assignment.
+
+After assignment, the employee should see the onboarding tasks in their Employee Dashboard.
+
+### 4.4 Editing Onboarding Flows
+
+When editing an onboarding flow, remember that you are usually editing a reusable template. If only one employee needs a unique journey, create a separate flow or confirm how the app handles assigned flow snapshots before making broad changes.
+
+### 4.5 Common Onboarding Issues
+
+**Employee does not see onboarding tasks**
+
+Confirm that the employee has been assigned a flow and that the employee record is linked to their user account.
+
+**Wrong employee progress appears**
+
+Confirm that each employee has a separate onboarding assignment and that the flow was not reused incorrectly as an employee-specific checklist.
+
+**Onboarding page is empty**
+
+Create at least one onboarding flow before assigning onboarding to employees.
+
+## 5. HR Primer Module
+
+The **Primer** module helps HR track employee 30-60-90 day progress. It supports goal tracking, completion status, progress percentages, and gamification signals such as XP, levels, and badges.
+
+### 5.1 What The Primer Module Contains
+
+The HR Primer module may show:
+
+- A list of employees.
+- Each employee's Primer progress.
+- Completed and total goals.
+- Level, XP, and badge summary.
+- Links to individual employee Primer details.
+
+### 5.2 How HR Uses Primer
+
+1. Open **HR Dashboard**.
+2. Select **Primer**.
+3. Review the employee list.
+4. Select an employee to view their detailed progress.
+5. Look for incomplete goals, low progress, or stalled activity.
+
+Primer is useful for checking whether employees are moving through their early success plan.
+
+### 5.3 What HR Should Look For
+
+HR should watch for:
+
+- Employees with no goals.
+- Employees with many incomplete goals.
+- Employees who are stuck at an early phase.
+- Employees who may need manager support or clarification.
+
+### 5.4 Common Primer Issues
+
+**Employee progress does not appear**
+
+Confirm that the employee has Primer goals and that the goals are linked to the correct employee account.
+
+**Progress looks lower than expected**
+
+Check whether the employee has marked goals complete and whether goals were created under the correct employee identity.
+
+## 6. HR Payroll Module
+
+The **Payroll** module helps HR create and manage payroll runs. It is designed to support payroll preparation, approval, paid status tracking, and employee payslip access.
+
+### 6.1 What The Payroll Module Contains
+
+The Payroll module may include:
+
+- Current active payroll run.
+- Recent paid payroll runs.
+- Payroll readiness messages.
+- Buttons to create, approve, or mark payroll as paid.
+- Links to payroll run details.
+
+### 6.2 Payroll Prerequisites
+
+Before creating payroll, make sure:
+
+- Employees exist in the company workspace.
+- Employees who should be paid are active.
+- Payroll settings are complete on employee records.
+- Salary or pay information is entered where required.
+
+If payroll readiness warnings appear, open the relevant employee records and complete payroll settings first.
+
+### 6.3 Creating A Payroll Run
+
+1. Open **Payroll**.
+2. Review payroll readiness warnings.
+3. Select **Create Payroll** if the button is available.
+4. Review the payroll run details.
+5. Confirm that employee pay data is correct.
+
+Do not create payroll until employee payroll information has been reviewed.
+
+### 6.4 Approving And Marking Payroll Paid
+
+After a payroll run is created:
+
+1. Review the payroll run.
+2. Approve it only when the details are correct.
+3. Mark it as paid after payment is complete.
+
+Once payroll is marked paid, employees may be able to access their payslips.
+
+### 6.5 Common Payroll Issues
+
+**Create Payroll is disabled**
+
+There may already be an active payroll run, or employees may not have complete payroll settings.
+
+**No active monthly employees found**
+
+Confirm employee status and pay frequency settings.
+
+**Employees cannot see payslips**
+
+Confirm that payroll was marked paid and payslips were issued.
+
+## 7. HR Billing Module
+
+The **Billing** module is where HR manages company subscription access. Billing is company-level, not employee-level.
+
+### 7.1 What The Billing Module Contains
+
+Billing may show:
+
+- Current plan.
+- Trial or subscription status.
+- Available plan options.
+- Checkout or upgrade buttons.
+- Billing portal access.
+
+### 7.2 How HR Uses Billing
+
+1. Open **Billing**.
+2. Review the current company plan.
+3. Select the desired plan if upgrading or starting a subscription.
+4. Complete checkout in Stripe if prompted.
+5. Return to WelcomeNestHR after payment or billing setup.
+
+### 7.3 Billing Notes
+
+Only authorized HR or company administrators should manage billing. Plan access may affect which modules or features are available to the company.
+
+### 7.4 Common Billing Issues
+
+**Checkout does not open**
+
+Confirm that Stripe configuration is complete and that the HR user has permission to manage billing.
+
+**Wrong plan appears**
+
+Wait for billing webhooks to update the company subscription, then refresh the page. If the issue remains, contact the platform administrator.
+
+## 8. HR Compliance Module
+
+The **Compliance** module helps HR monitor required modules, assignments, and employee completion status.
+
+### 8.1 What The Compliance Module Contains
+
+Compliance may include:
+
+- Compliance modules.
+- Employee assignment controls.
+- Completion status.
+- Employee onboarding progress.
+- Company-wide completion summaries.
+
+### 8.2 How HR Creates Compliance Modules
+
+1. Open **Compliance**.
+2. Create a compliance module with a title, description, and type.
+3. Save the module.
+4. Assign the module to the relevant employee.
+
+### 8.3 How HR Reviews Compliance
+
+Use Compliance to check:
+
+- Which employees have assigned modules.
+- Which modules are pending or complete.
+- Which employees may need follow-up.
+- How onboarding progress contributes to compliance readiness.
+
+### 8.4 Common Compliance Issues
+
+**Compliance shows no employees**
+
+Confirm that employees exist in the company workspace.
+
+**Completion rate looks wrong**
+
+Check whether the page is showing employees with assigned modules only or all employees.
+
+**Employee is not assigned**
+
+Assign the compliance module to the employee from the Compliance page.
+
+## 9. HR Collaborate Module
+
+The **Collaborate** module supports company communication and connection. HR can use it to publish announcements and support employee relationships.
+
+### 9.1 What The Collaborate Module Contains
+
+Collaborate may include:
+
+- Announcements.
+- Employee directory or org visibility.
+- Buddy assignment tools.
+- Collaboration updates.
+
+### 9.2 Publishing Announcements
+
+1. Open **Collaborate**.
+2. Create a new announcement.
+3. Add a clear title and message.
+4. Publish the announcement.
+
+Employees in the same company workspace should be able to view company-wide announcements from their Collaborate page.
+
+### 9.3 Buddy Support
+
+If buddy assignment is available:
+
+1. Open **Collaborate**.
+2. Choose the employee who needs a buddy.
+3. Choose the buddy employee.
+4. Save the assignment.
+
+Buddy assignment works best when at least two active employees exist in the company.
+
+### 9.4 Common Collaborate Issues
+
+**Employees do not see announcements**
+
+Confirm that the announcement was published under the correct company workspace.
+
+**Cannot assign a buddy**
+
+Confirm that there are at least two active employees and that the selected employees are valid.
+
+## 10. HR Messages Module
+
+The **Messages** module lets HR communicate directly with employees.
+
+### 10.1 What The Messages Module Contains
+
+Messages may include:
+
+- Existing HR-employee conversations.
+- Conversation previews.
+- A list of employees to start conversations with.
+- Individual chat pages.
+
+### 10.2 Starting A Conversation
+
+1. Open **Messages**.
+2. Select an employee from the start conversation list.
+3. Type your message.
+4. Send the message.
+
+After the first message is sent, the conversation should appear in the conversation list.
+
+### 10.3 Continuing A Conversation
+
+1. Open **Messages**.
+2. Select an existing conversation.
+3. Read previous messages.
+4. Send a reply if needed.
+
+### 10.4 Common Message Issues
+
+**No conversations appear**
+
+No conversations may have started yet. Select an employee to begin one.
+
+**Employee name is missing**
+
+The employee profile may not be linked correctly or may not have a name saved.
+
+**Message does not show immediately**
+
+Refresh the page if needed. If the issue continues, confirm network access and Firestore permissions.
+
+## 11. HR LifeSync Module
+
+The **LifeSync** module gives HR visibility into shared employee wellbeing signals. It is designed for emotional intelligence, early support, and trend awareness.
+
+### 11.1 What LifeSync Contains
+
+LifeSync may show:
+
+- Average sentiment.
+- Recent emotional check-ins.
+- Recent wellness logs.
+- Support requests.
+- At-risk signals.
+- People insight summaries.
+
+### 11.2 How HR Uses LifeSync
+
+1. Open **LifeSync**.
+2. Review average sentiment and support request counts.
+3. Check recent emotional check-ins.
+4. Review wellness logs.
+5. Follow up with employees who request support or show risk signals.
+
+LifeSync should be used to support employees, not to punish them.
+
+### 11.3 Privacy Notes
+
+Employees may share LifeSync entries in different ways depending on available privacy options:
+
+- Private entries should stay employee-only.
+- Anonymous or trend-only entries may show without the employee name.
+- HR-visible entries may show the employee name and details.
+
+Respect the privacy level selected by the employee.
+
+### 11.4 Common LifeSync Issues
+
+**LifeSync is empty**
+
+Employees may not have submitted shared entries yet, or entries may be private.
+
+**Employee name does not appear**
+
+The employee may have shared anonymously or as trend-only.
+
+**Support request appears**
+
+Follow up respectfully and privately. Do not discuss sensitive wellbeing entries publicly.
+
+## 12. HR NestGuide AI
+
+**NestGuide AI** is the role-aware assistant available inside the HR workspace. It helps HR users understand workflows, find next steps, and get guidance.
+
+### 12.1 How HR Uses NestGuide AI
+
+1. Select **NestGuide AI** from the sidebar.
+2. Ask a question about HR workflows or the current task.
+3. Review the answer.
+4. Use the guidance as support, not as a replacement for HR judgment.
+
+### 12.2 Good Questions For HR
+
+Examples:
+
+- "How do I onboard a new employee?"
+- "What should I check before running payroll?"
+- "How do I follow up on a LifeSync support request?"
+- "Why might an employee dashboard be empty?"
+
+### 12.3 AI Usage Notes
+
+NestGuide AI may provide general guidance. HR should still follow company policy, employment law, and internal approval processes.
+
+## 13. Employee Dashboard Overview
+
+The Employee Dashboard is the workspace employees use to complete onboarding, view company updates, track goals, communicate with HR, use LifeSync, and access payslips.
+
+Employees should only see information connected to their own employee account and company workspace.
+
+### 13.1 Employee Sidebar Modules
+
+Employee sidebar options may include:
+
+- **Smart Onboarding:** Complete onboarding tasks.
+- **LifeSync:** Submit wellbeing check-ins and wellness reflections.
+- **Collaborate:** View announcements, buddy information, and company collaboration tools.
+- **Compliance:** View assigned compliance or required tasks.
+- **Primer:** Track 30-60-90 day goals and progress.
+- **Payslips:** View issued payslips.
+- **Messages:** Communicate with HR.
+- **NestGuide AI:** Ask for role-aware guidance.
+
+### 13.2 Recommended Employee Starting Workflow
+
+After first login, employees should usually:
+
+1. Confirm they are in the Employee Dashboard.
+2. Open **Smart Onboarding** and review assigned tasks.
+3. Complete any required onboarding steps.
+4. Open **Collaborate** to read company announcements.
+5. Open **Primer** to review early goals.
+6. Use **Messages** if they need help from HR.
+7. Use **LifeSync** for wellbeing check-ins when appropriate.
+
+## 14. Employee Smart Onboarding Module
+
+The **Smart Onboarding** module shows the employee's assigned onboarding journey.
+
+### 14.1 What Employees See
+
+Employees may see:
+
+- Assigned onboarding flow.
+- Milestones.
+- Checklist tasks.
+- Completion status.
+- Current progress.
+
+### 14.2 How Employees Use Smart Onboarding
+
+1. Open **Smart Onboarding**.
+2. Review the current milestone or checklist.
+3. Complete each task as instructed.
+4. Mark tasks complete when finished.
+5. Continue until all onboarding tasks are complete.
+
+### 14.3 Common Onboarding Issues For Employees
+
+**No onboarding tasks appear**
+
+Contact HR. An onboarding flow may not have been assigned yet.
+
+**Task looks incorrect**
+
+Contact HR before marking it complete.
+
+**Progress does not update**
+
+Refresh the page. If it still does not update, contact HR.
+
+## 15. Employee LifeSync Module
+
+The **LifeSync** module lets employees share wellbeing check-ins and reflections.
+
+### 15.1 What Employees Can Do In LifeSync
+
+Employees may be able to:
+
+- Submit mood or emotional check-ins.
+- Add notes about how they are feeling.
+- Log wellness reflections.
+- Request HR follow-up.
+- Choose a visibility level when available.
+
+### 15.2 How Employees Submit A Check-In
+
+1. Open **LifeSync**.
+2. Choose the mood, sentiment, or wellbeing option that best fits.
+3. Add a note if needed.
+4. Choose the visibility option if available.
+5. Request follow-up if support is needed.
+6. Submit the check-in.
+
+### 15.3 LifeSync Privacy For Employees
+
+Depending on the option selected:
+
+- Private entries are intended for the employee only.
+- Anonymous or trend-only entries may help HR see patterns without identifying the employee.
+- HR-visible entries may be shown to HR with employee details.
+
+Employees should choose the option that matches their comfort level.
+
+### 15.4 Common LifeSync Issues For Employees
+
+**Entry does not appear in history**
+
+Refresh the page and confirm the entry was submitted.
+
+**HR cannot see an entry**
+
+The entry may have been saved as private.
+
+**Need urgent help**
+
+Use company-approved urgent support channels. LifeSync is not a replacement for emergency support.
+
+## 16. Employee Collaborate Module
+
+The **Collaborate** module helps employees stay connected to the company and team.
+
+### 16.1 What Employees See In Collaborate
+
+Employees may see:
+
+- Company announcements.
+- Buddy information.
+- Org or team visibility.
+- Collaboration updates.
+
+### 16.2 How Employees Use Collaborate
+
+1. Open **Collaborate**.
+2. Read recent announcements.
+3. Review assigned buddy information if available.
+4. Use any collaboration tools provided by the company.
+
+### 16.3 Common Collaborate Issues For Employees
+
+**No announcements appear**
+
+HR may not have published announcements yet.
+
+**No buddy appears**
+
+HR may not have assigned a buddy yet.
+
+**Company information looks wrong**
+
+Contact HR to confirm your employee record and company assignment.
+
+## 17. Employee Compliance Module
+
+The **Compliance** module helps employees view required compliance tasks or assignments.
+
+### 17.1 What Employees See
+
+Employees may see:
+
+- Assigned compliance modules.
+- Required tasks.
+- Completion status.
+- Related onboarding or training items.
+
+### 17.2 How Employees Use Compliance
+
+1. Open **Compliance**.
+2. Review assigned modules or tasks.
+3. Complete each required item.
+4. Confirm the completion status updates.
+
+### 17.3 Common Compliance Issues For Employees
+
+**No compliance modules appear**
+
+HR may not have assigned any modules yet.
+
+**A required item is unclear**
+
+Contact HR for clarification before marking it complete.
+
+## 18. Employee Primer Module
+
+The **Primer** module helps employees follow their 30-60-90 day goals.
+
+### 18.1 What Employees See In Primer
+
+Employees may see:
+
+- Goals grouped by phase.
+- Progress percentage.
+- XP, levels, or badges.
+- Completed and incomplete goals.
+
+### 18.2 How Employees Use Primer
+
+1. Open **Primer**.
+2. Review current goals.
+3. Work through the goals in order.
+4. Mark goals complete when finished.
+5. Check progress and upcoming goals regularly.
+
+### 18.3 Common Primer Issues For Employees
+
+**No goals appear**
+
+HR may not have created or assigned Primer goals yet.
+
+**Progress is not updating**
+
+Refresh the page and confirm the goal was marked complete.
+
+## 19. Employee Payslips Module
+
+The **Payslips** module lets employees view payslips that HR has issued.
+
+### 19.1 What Employees See
+
+Employees may see:
+
+- A list of issued payslips.
+- Pay period information.
+- Gross pay, deductions, and net pay where available.
+- Payslip detail pages.
+
+### 19.2 How Employees Use Payslips
+
+1. Open **Payslips**.
+2. Select a payslip.
+3. Review the details.
+4. Contact HR if any pay information looks incorrect.
+
+### 19.3 Common Payslip Issues
+
+**No payslips appear**
+
+HR may not have marked payroll as paid or issued payslips yet.
+
+**Payslip details look wrong**
+
+Contact HR or payroll support. Do not edit payroll records yourself.
+
+## 20. Employee Messages Module
+
+The **Messages** module lets employees communicate with HR.
+
+### 20.1 What Employees See
+
+Employees may see:
+
+- Existing conversations with HR.
+- Conversation previews.
+- Individual chat pages.
+
+### 20.2 How Employees Use Messages
+
+1. Open **Messages**.
+2. Select an existing conversation or start a conversation if available.
+3. Type your message.
+4. Send the message.
+5. Wait for HR to respond.
+
+### 20.3 Good Uses For Messages
+
+Employees can use Messages to ask about:
+
+- Onboarding tasks.
+- Missing documents or assignments.
+- Payslip questions.
+- Compliance tasks.
+- Primer goals.
+- General HR support.
+
+### 20.4 Common Message Issues
+
+**No conversation appears**
+
+HR may not have started a conversation yet, or no message has been sent.
+
+**Message does not send**
+
+Check your network connection and try again. If the problem continues, contact HR through another approved channel.
+
+## 21. Employee NestGuide AI
+
+**NestGuide AI** is the role-aware assistant available to employees.
+
+### 21.1 How Employees Use NestGuide AI
+
+1. Select **NestGuide AI** from the sidebar.
+2. Ask a question about using WelcomeNestHR.
+3. Review the response.
+4. Follow up with HR for company-specific decisions or sensitive issues.
+
+### 21.2 Good Questions For Employees
+
+Examples:
+
+- "Where do I find my onboarding tasks?"
+- "How do I complete a Primer goal?"
+- "Where can I see my payslip?"
+- "How do I message HR?"
+- "What is LifeSync for?"
+
+### 21.3 AI Usage Notes For Employees
+
+NestGuide AI is a guidance tool. Employees should contact HR for official decisions, policy questions, payroll issues, or urgent support.
+
+## 22. General Best Practices
+
+### 22.1 For HR
+
+- Create employee records before assigning workflows.
+- Confirm employees are linked to the correct company.
+- Keep onboarding flows clear and reusable.
+- Review LifeSync support requests privately and respectfully.
+- Confirm payroll details before approving payroll.
+- Use Messages for direct employee support.
+- Log out after using shared devices.
+
+### 22.2 For Employees
+
+- Start with Smart Onboarding after first login.
+- Complete required tasks carefully.
+- Use Messages when you need help from HR.
+- Use LifeSync honestly and choose the right privacy level.
+- Check Primer goals regularly.
+- Review payslips and report concerns quickly.
+- Log out after using shared devices.
+
+### 22.3 When To Contact Support Or An Administrator
+
+Contact HR, a Superadmin, or a technical administrator if:
+
+- You cannot log in.
+- You are routed to the wrong dashboard.
+- Your company workspace is missing or incorrect.
+- Required modules are empty when they should contain data.
+- Payroll or payslip information looks wrong.
+- Sensitive wellbeing or employee data appears in the wrong place.
+
+## 23. Documentation Coverage
+
+This guide covers the main HR and employee operating workflows in WelcomeNestHR. Superadmin setup, technical deployment, billing provider configuration, Firestore rules, and developer maintenance are handled separately from this user guide.
