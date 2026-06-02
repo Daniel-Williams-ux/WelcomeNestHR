@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { BookOpenCheck, Plus, Workflow } from 'lucide-react';
+import { BookOpenCheck, ChevronLeft, ChevronRight, Plus, Workflow } from 'lucide-react';
 import { useHROnboardingState } from '@/hooks/useHROnboardingState';
 import { useHROnboardingFlows } from '@/hooks/useHROnboardingFlows';
 import { Button } from '@/components/ui/button';
@@ -11,7 +11,8 @@ export default function HROnboardingPage() {
   const router = useRouter();
 
   const { state, loading } = useHROnboardingState();
-  const { flows, error } = useHROnboardingFlows();
+  const { flows, error, page, hasNext, hasPrev, nextPage, prevPage } =
+    useHROnboardingFlows({ pageSize: 9 });
 
   if (loading) {
     return (
@@ -115,6 +116,36 @@ export default function HROnboardingPage() {
             </p>
           </button>
         ))}
+      </div>
+
+      <div className="mt-5 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600 shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 sm:flex-row sm:items-center sm:justify-between">
+        <span>
+          Page {page} · showing up to 9 onboarding flows
+        </span>
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={prevPage}
+            disabled={!hasPrev}
+            aria-label="Previous onboarding flow page"
+          >
+            <ChevronLeft size={14} aria-hidden="true" />
+            Previous
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            onClick={nextPage}
+            disabled={!hasNext}
+            className="bg-[#00ACC1] text-white hover:bg-[#0097A7]"
+            aria-label="Next onboarding flow page"
+          >
+            Next
+            <ChevronRight size={14} aria-hidden="true" />
+          </Button>
+        </div>
       </div>
     </div>
   );

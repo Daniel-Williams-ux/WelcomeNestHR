@@ -91,7 +91,7 @@ export function HRSidebar({ onNavigate }: { onNavigate?: (href: string) => void 
           type="button"
           onClick={() => {
             setAiOpen(true);
-            onNavigate?.();
+            onNavigate?.(pathname);
           }}
           className="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-cyan-50 transition hover:bg-white/10 hover:text-white focus:outline-none focus:ring-2 focus:ring-cyan-200"
         >

@@ -1,7 +1,17 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { collection, getCountFromServer, getDocs, orderBy, query } from 'firebase/firestore';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  collection,
+  getCountFromServer,
+  getDocs,
+  orderBy,
+  query,
+  limit,
+  startAfter,
+  type DocumentData,
+  type QueryDocumentSnapshot,
+} from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useHRSession } from './useHRSession';
 
@@ -61,61 +71,90 @@ export function useHROnboardingFlowCount(companyId?: string | null) {
   return { totalFlows, loading, error };
 }
 
-export function useHROnboardingFlows() {
+type UseHROnboardingFlowsOptions = {
+  pageSize?: number;
+};
+
+export function useHROnboardingFlows(options: UseHROnboardingFlowsOptions = {}) {
   const { companyId } = useHRSession();
+  const { pageSize } = options;
 
   const [flows, setFlows] = useState<OnboardingFlow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [hasNext, setHasNext] = useState(false);
+  const [hasPrev, setHasPrev] = useState(false);
+  const cursorsRef = useRef<Map<number, QueryDocumentSnapshot<DocumentData> | null>>(
+    new Map(),
+  );
 
-  useEffect(() => {
-    let cancelled = false;
+  const loadPage = useCallback(
+    async (pageToLoad = 1) => {
+      if (!companyId) {
+        setFlows([]);
+        setLoading(false);
+        setPage(1);
+        setHasNext(false);
+        setHasPrev(false);
+        return;
+      }
 
-    if (!companyId) {
-      setFlows([]);
-      setLoading(false);
-      return;
-    }
-
-    async function load() {
       setLoading(true);
       setError(null);
 
       try {
-        const q = query(
-          collection(db, 'companies', companyId!, 'onboardingFlows'),
+        const baseQuery = query(
+          collection(db, 'companies', companyId, 'onboardingFlows'),
           orderBy('createdAt', 'desc'),
         );
 
-        const snap = await getDocs(q);
+        const cursor =
+          pageToLoad > 1 ? cursorsRef.current.get(pageToLoad - 1) : undefined;
+        const paginatedQuery = pageSize
+          ? cursor
+            ? query(baseQuery, startAfter(cursor), limit(pageSize + 1))
+            : query(baseQuery, limit(pageSize + 1))
+          : baseQuery;
 
-        if (cancelled) return;
+        const snap = await getDocs(paginatedQuery);
+        const docs = pageSize ? snap.docs.slice(0, pageSize) : snap.docs;
 
-        const data = snap.docs.map((doc) => ({
+        const data = docs.map((doc) => ({
           id: doc.id,
           ...(doc.data() as Omit<OnboardingFlow, 'id'>),
         }));
 
         setFlows(data);
+        setPage(pageToLoad);
+        setHasPrev(pageToLoad > 1);
+        setHasNext(Boolean(pageSize && snap.docs.length > pageSize));
+        cursorsRef.current.set(pageToLoad, docs[docs.length - 1] ?? null);
       } catch (err) {
-        if (!cancelled) {
-          console.error('[useHROnboardingFlows] failed:', err);
-          setFlows([]);
-          setError('Unable to load onboarding flows.');
-        }
+        console.error('[useHROnboardingFlows] failed:', err);
+        setFlows([]);
+        setError('Unable to load onboarding flows.');
       } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        setLoading(false);
       }
-    }
+    },
+    [companyId, pageSize],
+  );
 
-    load();
+  useEffect(() => {
+    cursorsRef.current = new Map();
+    loadPage(1);
+  }, [loadPage]);
 
-    return () => {
-      cancelled = true;
-    };
-  }, [companyId]);
-
-  return { flows, loading, error };
+  return {
+    flows,
+    loading,
+    error,
+    page,
+    hasNext,
+    hasPrev,
+    nextPage: () => hasNext && loadPage(page + 1),
+    prevPage: () => hasPrev && loadPage(page - 1),
+    reload: () => loadPage(page),
+  };
 }

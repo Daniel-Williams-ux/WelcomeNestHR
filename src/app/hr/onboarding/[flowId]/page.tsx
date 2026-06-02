@@ -1,12 +1,21 @@
 'use client';
 
 import { useParams } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useUserAccess } from '@/hooks/useUserAccess';
 import { useEmployees } from '@/hooks/useEmployees';
 import { useOnboardingChecklist } from '@/hooks/useOnboardingChecklist';
 import { assignOnboardingFlowToEmployee } from '@/lib/onboarding/assignOnboardingFlow';
 import Link from 'next/link';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+
+const ITEMS_PER_PAGE = 8;
+
+type FlowMeta = {
+  name: string;
+  description?: string | null;
+};
 
 export default function OnboardingFlowDetailPage() {
   const { flowId } = useParams<{ flowId: string }>();
@@ -19,6 +28,8 @@ export default function OnboardingFlowDetailPage() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [flowMeta, setFlowMeta] = useState<FlowMeta | null>(null);
+  const [itemPage, setItemPage] = useState(1);
 
 
   const { companyId } = useUserAccess();
@@ -26,6 +37,45 @@ export default function OnboardingFlowDetailPage() {
     companyId ?? undefined,
     100,
   );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadFlowMeta() {
+      if (!companyId || !flowId) return;
+
+      const flowRef = doc(db, 'companies', companyId, 'onboardingFlows', flowId);
+      const snap = await getDoc(flowRef);
+
+      if (cancelled) return;
+
+      if (snap.exists()) {
+        const data = snap.data();
+        setFlowMeta({
+          name: data.name || 'Untitled onboarding flow',
+          description: data.description ?? null,
+        });
+      }
+    }
+
+    loadFlowMeta().catch((error) => {
+      console.error('Failed to load onboarding flow details:', error);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [companyId, flowId]);
+
+  useEffect(() => {
+    setItemPage(1);
+  }, [flowId, items.length]);
+
+  const totalItemPages = Math.max(1, Math.ceil(items.length / ITEMS_PER_PAGE));
+  const paginatedItems = useMemo(() => {
+    const start = (itemPage - 1) * ITEMS_PER_PAGE;
+    return items.slice(start, start + ITEMS_PER_PAGE);
+  }, [itemPage, items]);
 
   async function handleAdd() {
     if (!title.trim()) return;
@@ -58,7 +108,22 @@ async function handleAssign() {
   }
 
   return (
-    <div className="p-6 max-w-2xl space-y-6">
+    <div className="p-6 max-w-4xl space-y-6">
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#008FA1]">
+          Selected onboarding template
+        </p>
+        <h1 className="mt-2 text-2xl font-bold text-slate-950 dark:text-white">
+          {flowMeta?.name || 'Loading flow name...'}
+        </h1>
+        <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+          {flowMeta?.description || 'No description added yet.'}
+        </p>
+        <p className="mt-3 text-xs text-slate-500">
+          Flow ID: <span className="font-mono">{flowId}</span>
+        </p>
+      </div>
+
       <section className="rounded-2xl border border-cyan-100 bg-cyan-50 p-4 text-sm text-[#006e7f] dark:border-cyan-900/50 dark:bg-cyan-950/30 dark:text-cyan-100">
         <p className="font-semibold">This is a reusable onboarding template.</p>
         <p className="mt-1 leading-6">
@@ -114,8 +179,13 @@ async function handleAssign() {
           </div>
         )}
       </div>
-      <div className="flex justify-between items-center">
-        <h1 className="text-xl font-semibold">Template checklist</h1>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-xl font-semibold">Template checklist</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            {items.length} checklist item{items.length === 1 ? '' : 's'} in this flow.
+          </p>
+        </div>
 
         <Link
           href={`/hr/onboarding/${flowId}/edit`}
@@ -159,8 +229,9 @@ async function handleAssign() {
       {items.length === 0 ? (
         <p className="text-gray-600">No checklist items yet.</p>
       ) : (
+        <>
         <ul className="space-y-3">
-          {items.map((item) => (
+          {paginatedItems.map((item) => (
             <li
               key={item.id}
               className="border rounded-md p-4 flex flex-col gap-1 dark:border-slate-800 dark:bg-slate-900"
@@ -177,6 +248,32 @@ async function handleAssign() {
             </li>
           ))}
         </ul>
+        <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 sm:flex-row sm:items-center sm:justify-between">
+          <span>
+            Checklist page {itemPage} of {totalItemPages}
+          </span>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setItemPage((value) => Math.max(1, value - 1))}
+              disabled={itemPage === 1}
+              className="rounded-md border px-3 py-2 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Previous
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                setItemPage((value) => Math.min(totalItemPages, value + 1))
+              }
+              disabled={itemPage === totalItemPages}
+              className="rounded-md bg-[#00ACC1] px-3 py-2 text-white disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+        </>
       )}
     </div>
   );
