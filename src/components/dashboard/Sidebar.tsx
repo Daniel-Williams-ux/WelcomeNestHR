@@ -2,7 +2,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Home,
   Heart,
@@ -15,7 +15,7 @@ import {
   Bot, //  AI icon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import AIAssistantPanel from "@/components/dashboard/AIAssistantPanel";
 
 type SidebarProps = {
@@ -58,7 +58,12 @@ const isActivePath = (pathname: string, path: string) =>
 
 export function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const [aiOpen, setAiOpen] = useState(false);
+
+  useEffect(() => {
+    navItems.forEach((item) => router.prefetch(item.path));
+  }, [router]);
 
   return (
     <>
@@ -78,7 +83,10 @@ export function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
               <Link
                 key={item.name}
                 href={item.path}
+                prefetch
                 aria-current={active ? 'page' : undefined}
+                onMouseEnter={() => router.prefetch(item.path)}
+                onFocus={() => router.prefetch(item.path)}
                 className={cn(
                   "flex min-h-11 items-center gap-2 px-3 py-2 rounded-lg text-cyan-50 transition-all duration-200 hover:bg-white/10 hover:text-white focus:outline-none focus:ring-2 focus:ring-cyan-200",
                   active && "bg-white text-[#004d59] shadow-sm hover:bg-white"
@@ -123,12 +131,15 @@ export function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 <Link
                   key={item.name}
                   href={item.path}
+                  prefetch
                   aria-current={active ? 'page' : undefined}
                   className={cn(
                     "flex min-h-11 items-center gap-2 px-3 py-2 rounded-lg text-cyan-50 transition-all duration-200 hover:bg-white/10 hover:text-white focus:outline-none focus:ring-2 focus:ring-cyan-200",
                     active && "bg-white text-[#004d59] shadow-sm hover:bg-white"
                   )}
                   onClick={() => setSidebarOpen(false)}
+                  onMouseEnter={() => router.prefetch(item.path)}
+                  onFocus={() => router.prefetch(item.path)}
                 >
                   {item.icon}
                   <span>{item.name}</span>
