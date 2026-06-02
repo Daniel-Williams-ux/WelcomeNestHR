@@ -119,11 +119,15 @@ export default function HRPrimerPage() {
             (g) => g.status === 'completed',
           ).length;
           const cachedProgress = employee.primerProgress;
+          const shouldUseCachedProgress =
+            Boolean(cachedProgress?.total) && (cachedProgress?.total ?? 0) >= total;
 
           const progress =
-            total === 0
+            shouldUseCachedProgress
               ? cachedProgress?.percent ?? 0
-              : (completed / total) * 100;
+              : total === 0
+                ? 0
+                : (completed / total) * 100;
           const gamification = calculatePrimerGamification(userGoals);
 
           return {
@@ -131,15 +135,23 @@ export default function HRPrimerPage() {
             userId: employee.uid || employee.id,
             name: employee.name,
             title: employee.title,
-            total: total || cachedProgress?.total || 0,
-            completed: total ? completed : cachedProgress?.completed || 0,
+            total: shouldUseCachedProgress ? cachedProgress?.total || 0 : total,
+            completed: shouldUseCachedProgress
+              ? cachedProgress?.completed || 0
+              : completed,
             progress,
-            xp: total ? gamification.xp : cachedProgress?.xp || 0,
-            level: total ? gamification.level : cachedProgress?.level || 1,
+            xp: shouldUseCachedProgress ? cachedProgress?.xp || 0 : gamification.xp,
+            level: shouldUseCachedProgress
+              ? cachedProgress?.level || 1
+              : gamification.level,
             levelName:
-              total ? gamification.levelName : cachedProgress?.levelName || 'New Starter',
+              shouldUseCachedProgress
+                ? cachedProgress?.levelName || 'New Starter'
+                : gamification.levelName,
             badgeCount:
-              total ? gamification.badges.length : cachedProgress?.badgeCount || 0,
+              shouldUseCachedProgress
+                ? cachedProgress?.badgeCount || 0
+                : gamification.badges.length,
           };
         });
 

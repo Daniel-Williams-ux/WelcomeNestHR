@@ -39,7 +39,62 @@ export default function HROnboardingProgressPage() {
           let total = 0;
           let milestone = 'Preboarding';
 
-          if (
+          const primaryFlowId = empData.onboarding?.primaryFlowId;
+          let flowData: any | null = null;
+
+          if (primaryFlowId) {
+            const flowSnap = await getDoc(
+              doc(
+                db,
+                'companies',
+                companyId,
+                'employees',
+                employeeId,
+                'onboardingFlows',
+                primaryFlowId,
+              ),
+            );
+            flowData = flowSnap.exists() ? flowSnap.data() : null;
+          }
+
+          if (!flowData) {
+            const flowsRef = collection(
+              db,
+              'companies',
+              companyId,
+              'employees',
+              employeeId,
+              'onboardingFlows',
+            );
+
+            const flowsSnap = await getDocs(flowsRef);
+            flowData = flowsSnap.docs[0]?.data() ?? null;
+          }
+
+          if (flowData) {
+            const milestones = flowData.milestones ?? [];
+            const tasks = milestones.flatMap((m: any) => m.tasks ?? []);
+
+            total = tasks.length;
+
+            completed = tasks.filter((t: any) => t.completed === true).length;
+
+            percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+            const activeMilestone = milestones.find((m: any) =>
+              (m.tasks ?? []).some((t: any) => !t.completed),
+            );
+
+            const labels = [
+              'Preboarding',
+              'Day 1',
+              'Week 1',
+              '30 Days',
+              'Beyond',
+            ];
+
+            milestone = labels[activeMilestone?.order ?? 4] ?? 'Beyond';
+          } else if (
             cachedProgress &&
             typeof cachedProgress.completed === 'number' &&
             typeof cachedProgress.total === 'number'
@@ -53,63 +108,6 @@ export default function HROnboardingProgressPage() {
                   ? Math.round((completed / total) * 100)
                   : 0;
             milestone = cachedProgress.currentMilestone ?? 'Progress updated';
-          } else {
-            const primaryFlowId = empData.onboarding?.primaryFlowId;
-            let flowData: any | null = null;
-
-            if (primaryFlowId) {
-              const flowSnap = await getDoc(
-                doc(
-                  db,
-                  'companies',
-                  companyId,
-                  'employees',
-                  employeeId,
-                  'onboardingFlows',
-                  primaryFlowId,
-                ),
-              );
-              flowData = flowSnap.exists() ? flowSnap.data() : null;
-            }
-
-            if (!flowData) {
-              const flowsRef = collection(
-                db,
-                'companies',
-                companyId,
-                'employees',
-                employeeId,
-                'onboardingFlows',
-              );
-
-              const flowsSnap = await getDocs(flowsRef);
-              flowData = flowsSnap.docs[0]?.data() ?? null;
-            }
-
-            if (flowData) {
-              const milestones = flowData.milestones ?? [];
-              const tasks = milestones.flatMap((m: any) => m.tasks ?? []);
-
-              total = tasks.length;
-
-              completed = tasks.filter((t: any) => t.completed === true).length;
-
-              percent = total > 0 ? Math.round((completed / total) * 100) : 0;
-
-              const activeMilestone = milestones.find((m: any) =>
-                (m.tasks ?? []).some((t: any) => !t.completed),
-              );
-
-              const labels = [
-                'Preboarding',
-                'Day 1',
-                'Week 1',
-                '30 Days',
-                'Beyond',
-              ];
-
-              milestone = labels[activeMilestone?.order ?? 4] ?? 'Beyond';
-            }
           }
 
           list.push({

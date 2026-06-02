@@ -216,6 +216,15 @@ service cloud.firestore {
               'uid',
               'updatedAt'
             ])
+          )
+          || (
+            isEmployeeOwner(companyId, employeeId)
+            && request.resource.data.uid == resource.data.uid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'onboarding',
+              'primer',
+              'updatedAt'
+            ])
           );
 
         allow delete: if canManageCompany(companyId);
