@@ -21,13 +21,6 @@ import {
   type ComplianceType,
 } from '@/lib/compliance';
 
-type OnboardingProgress = {
-  completed: number;
-  total: number;
-  percent: number;
-  currentMilestone: string;
-};
-
 export default function HRCompliancePage() {
   const { companyId, loading: authLoading } = useUserAccess();
   
@@ -43,9 +36,6 @@ export default function HRCompliancePage() {
 
   const [modules, setModules] = useState<ComplianceModule[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
-  const [onboardingProgress, setOnboardingProgress] = useState<
-    Record<string, OnboardingProgress>
-  >({});
 
   const [assigningId, setAssigningId] = useState<string | null>(null);
   const [employeeId, setEmployeeId] = useState('');
@@ -84,91 +74,6 @@ export default function HRCompliancePage() {
     }));
 
     setEmployees(employeeRows);
-
-    const progressEntries = await Promise.all(
-      employeeRows.map(async (employee) => {
-        const cachedProgress = employee.onboarding?.progress;
-        if (
-          cachedProgress &&
-          typeof cachedProgress.completed === 'number' &&
-          typeof cachedProgress.total === 'number'
-        ) {
-          return [
-            employee.id,
-            {
-              completed: cachedProgress.completed,
-              total: cachedProgress.total,
-              percent:
-                typeof cachedProgress.percent === 'number'
-                  ? cachedProgress.percent
-                  : cachedProgress.total === 0
-                    ? 0
-                    : Math.round(
-                        (cachedProgress.completed / cachedProgress.total) * 100,
-                      ),
-              currentMilestone:
-                cachedProgress.currentMilestone ?? 'Progress updated',
-            },
-          ] as const;
-        }
-
-        const flowsSnap = await getDocs(
-          collection(
-            db,
-            'companies',
-            companyId,
-            'employees',
-            employee.id,
-            'onboardingFlows',
-          ),
-        );
-
-        if (flowsSnap.empty) {
-          return [
-            employee.id,
-            {
-              completed: 0,
-              total: 0,
-              percent: 0,
-              currentMilestone: 'Not assigned',
-            },
-          ] as const;
-        }
-
-        const primaryFlowId = employee.onboarding?.primaryFlowId;
-        const flowDoc =
-          flowsSnap.docs.find((doc) => doc.id === primaryFlowId) ??
-          flowsSnap.docs[0];
-        const flowData = flowDoc.data();
-        const milestones = flowData.milestones ?? [];
-        const tasks = milestones.flatMap((milestone: any) =>
-          (milestone.tasks ?? []).map((task: any) => ({
-            ...task,
-            milestoneTitle: milestone.title,
-          })),
-        );
-
-        const total = tasks.length;
-        const completed = tasks.filter((task: any) => task.completed === true).length;
-        const percent = total === 0 ? 0 : Math.round((completed / total) * 100);
-        const nextTask = tasks.find((task: any) => task.completed !== true);
-
-        return [
-          employee.id,
-          {
-            completed,
-            total,
-            percent,
-            currentMilestone:
-              total === 0
-                ? 'No tasks'
-                : nextTask?.milestoneTitle ?? 'Complete',
-          },
-        ] as const;
-      }),
-    );
-
-    setOnboardingProgress(Object.fromEntries(progressEntries));
   };
 
   useEffect(() => {
@@ -312,6 +217,7 @@ export default function HRCompliancePage() {
     ...assignment,
     status: getComplianceStatus(assignment),
     module: moduleMap.get(assignment.moduleId),
+    employee: employees.find((employee) => employee.id === assignment.employeeId),
   }));
   const completedAssignments = assignmentsWithStatus.filter(
     (assignment) => assignment.status === 'completed',
@@ -376,35 +282,9 @@ export default function HRCompliancePage() {
             employeesWithCompliance.length,
         );
 
-  const atRiskEmployees = employeeCompliance
-    .map((ec) => {
-      const onboarding = onboardingProgress[ec.employee.id] ?? {
-        completed: 0,
-        total: 0,
-        percent: 0,
-        currentMilestone: 'Not assigned',
-      };
-
-      return {
-        ...ec,
-        onboarding,
-        hasComplianceRisk: ec.total > 0 && ec.percent < 100,
-        hasOnboardingRisk: onboarding.total > 0 && onboarding.percent < 100,
-      };
-    })
-    .filter((ec) => ec.hasComplianceRisk || ec.hasOnboardingRisk)
-    .sort((a, b) => {
-      const aLowest = Math.min(
-        a.hasComplianceRisk ? a.percent : 100,
-        a.hasOnboardingRisk ? a.onboarding.percent : 100,
-      );
-      const bLowest = Math.min(
-        b.hasComplianceRisk ? b.percent : 100,
-        b.hasOnboardingRisk ? b.onboarding.percent : 100,
-      );
-
-      return aLowest - bLowest;
-    });
+  const complianceRiskEmployees = employeeCompliance
+    .filter((ec) => ec.total > 0 && ec.percent < 100)
+    .sort((a, b) => a.percent - b.percent);
 
   return (
     <div className="p-6 space-y-6">
@@ -636,159 +516,185 @@ export default function HRCompliancePage() {
         ))}
       </div>
 
-      <div className="space-y-3">
-        <h2 className="text-lg font-medium">Tracking</h2>
-        <p className="text-sm text-gray-600 dark:text-slate-300">
-          Company compliance rate: {complianceRate}% across{' '}
-          {employeesWithCompliance.length} employee
-          {employeesWithCompliance.length === 1 ? '' : 's'} with assigned modules.
-        </p>
+      <section className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Assignment Register
+            </h2>
+            <p className="text-sm text-gray-600 dark:text-slate-300">
+              Track every policy, certification, training, and task assigned to employees.
+            </p>
+          </div>
+          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+            {assignmentsWithStatus.length} active record
+            {assignmentsWithStatus.length === 1 ? '' : 's'}
+          </span>
+        </div>
 
-        <div className="mt-4 space-y-2">
-          <h3 className="text-sm font-medium text-gray-700">
-            Employee Onboarding Progress
-          </h3>
-
-          {employees.map((employee) => {
-            const progress = onboardingProgress[employee.id] ?? {
-              completed: 0,
-              total: 0,
-              percent: 0,
-              currentMilestone: 'Not assigned',
-            };
-
-            return (
+        {assignmentsWithStatus.length === 0 ? (
+          <div className="mt-4 rounded-xl border border-dashed border-slate-300 p-5 text-sm text-slate-500">
+            No compliance assignments yet. Assign a requirement to an employee to
+            start building audit-ready records.
+          </div>
+        ) : (
+          <div className="mt-4 grid gap-3">
+            {assignmentsWithStatus.map((assignment) => (
               <div
-                key={employee.id}
-                className="p-3 border rounded-lg bg-white flex justify-between items-center"
+                key={assignment.id}
+                className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950"
+              >
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                      {assignment.module?.title || 'Missing requirement'}
+                    </p>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Assigned to{' '}
+                      <span className="font-medium text-gray-700">
+                        {assignment.employee?.name || 'Unknown employee'}
+                      </span>
+                      {assignment.employee?.department
+                        ? ` · ${assignment.employee.department}`
+                        : ''}
+                    </p>
+                  </div>
+                  <span
+                    className={`w-fit rounded-full px-2 py-1 text-xs font-medium ${
+                      assignment.status === 'completed'
+                        ? 'bg-green-100 text-green-700'
+                        : assignment.status === 'overdue'
+                          ? 'bg-red-100 text-red-700'
+                          : assignment.status === 'expiring_soon'
+                            ? 'bg-orange-100 text-orange-700'
+                            : 'bg-yellow-100 text-yellow-700'
+                    }`}
+                  >
+                    {statusLabel(assignment.status)}
+                  </span>
+                </div>
+
+                <div className="mt-4 grid gap-3 text-xs text-gray-600 sm:grid-cols-3">
+                  <div>
+                    <p className="font-medium uppercase tracking-wide text-gray-400">
+                      Type
+                    </p>
+                    <p className="mt-1">
+                      {assignment.module
+                        ? complianceTypeLabel(assignment.module.type)
+                        : 'Unknown'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="font-medium uppercase tracking-wide text-gray-400">
+                      Due
+                    </p>
+                    <p className="mt-1">{formatDate(assignment.dueDate)}</p>
+                  </div>
+                  <div>
+                    <p className="font-medium uppercase tracking-wide text-gray-400">
+                      Expires
+                    </p>
+                    <p className="mt-1">
+                      {assignment.module?.type === 'certification'
+                        ? formatDate(assignment.expiresAt)
+                        : 'N/A'}
+                    </p>
+                  </div>
+                </div>
+
+                {assignment.completionNote && (
+                  <p className="mt-3 rounded-lg bg-white p-2 text-xs text-gray-500 dark:bg-slate-900">
+                    Note: {assignment.completionNote}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
+        <section className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+            Employee Compliance Summary
+          </h2>
+          <p className="mt-1 text-sm text-gray-600 dark:text-slate-300">
+            Company compliance rate: {complianceRate}% across{' '}
+            {employeesWithCompliance.length} employee
+            {employeesWithCompliance.length === 1 ? '' : 's'} with assigned requirements.
+          </p>
+
+          <div className="mt-4 space-y-2">
+            {employeeCompliance.map((ec) => (
+              <div
+                key={ec.employee.id}
+                className="flex items-center justify-between rounded-lg border bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950"
               >
                 <div>
-                  <p className="text-sm font-medium">{employee.name}</p>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">
+                    {ec.employee.name}
+                  </p>
                   <p className="text-xs text-gray-500">
-                    {progress.completed}/{progress.total} onboarding tasks ·{' '}
-                    {progress.currentMilestone}
+                    {ec.total === 0
+                      ? 'No compliance assigned'
+                      : `${ec.completed}/${ec.total} requirements completed`}
                   </p>
                 </div>
 
                 <span
                   className={`text-xs px-2 py-1 rounded ${
-                    progress.total === 0
+                    ec.total === 0
                       ? 'bg-gray-100 text-gray-500'
-                      : progress.percent === 100
+                      : ec.percent === 100
                         ? 'bg-green-100 text-green-700'
-                        : progress.percent > 0
+                        : ec.percent > 0
                           ? 'bg-yellow-100 text-yellow-700'
                           : 'bg-red-100 text-red-700'
                   }`}
                 >
-                  {progress.total === 0 ? 'N/A' : `${progress.percent}%`}
+                  {ec.total === 0 ? 'Not assigned' : `${ec.percent}%`}
                 </span>
               </div>
-            );
-          })}
-        </div>
+            ))}
+          </div>
+        </section>
 
-        <div className="mt-4 space-y-2">
-          <h3 className="text-sm font-medium text-gray-700">
-            Employee Compliance
-          </h3>
+        <section className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+            Compliance Risk Queue
+          </h2>
+          <p className="mt-1 text-sm text-gray-600 dark:text-slate-300">
+            Employees with incomplete compliance requirements only.
+          </p>
 
-          {employeeCompliance.map((ec) => (
-            <div
-              key={ec.employee.id}
-              className="p-3 border rounded-lg bg-white flex justify-between items-center"
-            >
-              <div>
-                <p className="text-sm font-medium">{ec.employee.name}</p>
-                <p className="text-xs text-gray-500">
-                  {ec.completed}/{ec.total} modules
-                </p>
+          <div className="mt-4 space-y-2">
+            {complianceRiskEmployees.length === 0 ? (
+              <div className="rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-700">
+                No compliance risks right now. Assigned employees are up to date.
               </div>
-
-              <span
-                className={`text-xs px-2 py-1 rounded ${
-                  ec.total === 0
-                    ? 'bg-gray-100 text-gray-500'
-                    : ec.percent === 100
-                      ? 'bg-green-100 text-green-700'
-                      : ec.percent > 0
-                        ? 'bg-yellow-100 text-yellow-700'
-                        : 'bg-red-100 text-red-700'
-                }`}
-              >
-                {ec.total === 0 ? 'N/A' : `${ec.percent}%`}
-              </span>
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-6 space-y-2">
-          <h3 className="text-sm font-medium text-red-600">
-            At Risk Employees
-          </h3>
-
-          {atRiskEmployees.length === 0 ? (
-            <p className="text-xs text-gray-500">
-              No employees are currently at risk.
-            </p>
-          ) : (
-            atRiskEmployees.map((ec) => (
-              <div
-                key={ec.employee.id}
-                className="p-3 border rounded-lg bg-red-50 flex justify-between gap-3 items-center"
-              >
-                <div>
-                  <p className="text-sm font-medium">{ec.employee.name}</p>
-                  <p className="text-xs text-gray-500">
-                    {ec.hasOnboardingRisk &&
-                      `${ec.onboarding.completed}/${ec.onboarding.total} onboarding tasks`}
-                    {ec.hasOnboardingRisk && ec.hasComplianceRisk ? ' · ' : ''}
-                    {ec.hasComplianceRisk &&
-                      `${ec.completed}/${ec.total} compliance modules`}
-                  </p>
+            ) : (
+              complianceRiskEmployees.map((ec) => (
+                <div
+                  key={ec.employee.id}
+                  className="flex items-center justify-between rounded-lg border border-red-100 bg-red-50 p-3"
+                >
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">
+                      {ec.employee.name}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {ec.completed}/{ec.total} requirements completed
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-red-100 px-2 py-1 text-xs font-medium text-red-700">
+                    Compliance {ec.percent}%
+                  </span>
                 </div>
-
-                <div className="flex flex-wrap justify-end gap-2">
-                  {ec.hasOnboardingRisk && (
-                    <span className="text-xs px-2 py-1 rounded bg-red-100 text-red-700">
-                      Onboarding {ec.onboarding.percent}%
-                    </span>
-                  )}
-                  {ec.hasComplianceRisk && (
-                    <span className="text-xs px-2 py-1 rounded bg-red-100 text-red-700">
-                      Compliance {ec.percent}%
-                    </span>
-                  )}
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-
-      </div>
-
-      {/* ================= CORE CARDS ================= */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <div className="rounded-2xl border border-gray-200 p-4 bg-white">
-          <h2 className="font-medium text-gray-900">Training</h2>
-          <p className="text-sm text-gray-500 mt-1">
-            Create and manage compliance modules.
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-gray-200 p-4 bg-white">
-          <h2 className="font-medium text-gray-900">Assignments</h2>
-          <p className="text-sm text-gray-500 mt-1">
-            Assign training to employees or teams.
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-gray-200 p-4 bg-white">
-          <h2 className="font-medium text-gray-900">Tracking</h2>
-          <p className="text-sm text-gray-500 mt-1">
-            Monitor completion and compliance status.
-          </p>
-        </div>
+              ))
+            )}
+          </div>
+        </section>
       </div>
     </div>
   );
