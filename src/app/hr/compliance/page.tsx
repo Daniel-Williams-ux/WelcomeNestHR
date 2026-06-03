@@ -8,8 +8,18 @@ import {
   serverTimestamp,
   getDocs,
   onSnapshot,
+  Timestamp,
 } from 'firebase/firestore';
 import { useUserAccess } from '@/hooks/useUserAccess';
+import {
+  complianceTypeLabel,
+  formatDate,
+  getComplianceStatus,
+  statusLabel,
+  type ComplianceAssignment,
+  type ComplianceModule,
+  type ComplianceType,
+} from '@/lib/compliance';
 
 type OnboardingProgress = {
   completed: number;
@@ -25,9 +35,13 @@ export default function HRCompliancePage() {
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [type, setType] = useState('');
+  const [type, setType] = useState<ComplianceType | ''>('');
+  const [documentUrl, setDocumentUrl] = useState('');
+  const [issuingAuthority, setIssuingAuthority] = useState('');
+  const [defaultDueDate, setDefaultDueDate] = useState('');
+  const [defaultExpiresAt, setDefaultExpiresAt] = useState('');
 
-  const [modules, setModules] = useState<any[]>([]);
+  const [modules, setModules] = useState<ComplianceModule[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
   const [onboardingProgress, setOnboardingProgress] = useState<
     Record<string, OnboardingProgress>
@@ -38,7 +52,10 @@ export default function HRCompliancePage() {
 
   const [loading, setLoading] = useState(true);
 
-  const [assignments, setAssignments] = useState<any[]>([]);
+  const [assignments, setAssignments] = useState<ComplianceAssignment[]>([]);
+
+  const toTimestamp = (value: string) =>
+    value ? Timestamp.fromDate(new Date(`${value}T12:00:00`)) : null;
 
   // =========================
   // FETCH DATA
@@ -51,7 +68,7 @@ export default function HRCompliancePage() {
     setModules(
       snapshot.docs.map((doc) => ({
         id: doc.id,
-        ...doc.data(),
+        ...(doc.data() as Omit<ComplianceModule, 'id'>),
       })),
     );
   };
@@ -178,10 +195,22 @@ export default function HRCompliancePage() {
       collection(db, 'companies', companyId, 'complianceAssignments'),
       (snapshot) => {
         setAssignments(
-          snapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          })),
+          snapshot.docs.map((doc) => {
+            const data = doc.data();
+
+            return {
+              id: doc.id,
+              moduleId: String(data.moduleId),
+              employeeId: String(data.employeeId),
+              status: data.status,
+              dueDate: data.dueDate,
+              expiresAt: data.expiresAt,
+              completedAt: data.completedAt,
+              acknowledgedAt: data.acknowledgedAt,
+              licenseNumber: data.licenseNumber,
+              completionNote: data.completionNote,
+            };
+          }),
         );
       },
       (error) => {
@@ -202,15 +231,24 @@ export default function HRCompliancePage() {
     if (!title || !type || !companyId) return;
 
     await addDoc(collection(db, 'companies', companyId, 'complianceModules'), {
-      title,
-      description,
+      title: title.trim(),
+      description: description.trim(),
       type,
+      documentUrl: documentUrl.trim(),
+      issuingAuthority: issuingAuthority.trim(),
+      requiresAcknowledgment: type === 'policy',
+      defaultDueDate: toTimestamp(defaultDueDate),
+      defaultExpiresAt: type === 'certification' ? toTimestamp(defaultExpiresAt) : null,
       createdAt: serverTimestamp(),
     });
 
     setTitle('');
     setDescription('');
     setType('');
+    setDocumentUrl('');
+    setIssuingAuthority('');
+    setDefaultDueDate('');
+    setDefaultExpiresAt('');
     setShowForm(false);
 
     fetchModules(companyId);
@@ -236,10 +274,13 @@ export default function HRCompliancePage() {
         return;
       }
 
+      const moduleItem = modules.find((module) => module.id === moduleId);
       const payload = {
         moduleId,
         employeeId,
         status: 'pending',
+        dueDate: moduleItem?.defaultDueDate ?? null,
+        expiresAt: moduleItem?.defaultExpiresAt ?? null,
         createdAt: serverTimestamp(),
       };
 
@@ -266,6 +307,33 @@ export default function HRCompliancePage() {
   const validAssignments = assignments.filter((a) =>
     modules.some((m) => m.id === a.moduleId),
   );
+  const moduleMap = new Map(modules.map((module) => [module.id, module]));
+  const assignmentsWithStatus = validAssignments.map((assignment) => ({
+    ...assignment,
+    status: getComplianceStatus(assignment),
+    module: moduleMap.get(assignment.moduleId),
+  }));
+  const completedAssignments = assignmentsWithStatus.filter(
+    (assignment) => assignment.status === 'completed',
+  );
+  const overdueAssignments = assignmentsWithStatus.filter(
+    (assignment) => assignment.status === 'overdue',
+  );
+  const expiringAssignments = assignmentsWithStatus.filter(
+    (assignment) => assignment.status === 'expiring_soon',
+  );
+  const riskScore =
+    assignmentsWithStatus.length === 0
+      ? 100
+      : Math.max(
+          0,
+          Math.round(
+            100 -
+              ((overdueAssignments.length * 2 + expiringAssignments.length) /
+                assignmentsWithStatus.length) *
+                50,
+          ),
+        );
   
   const employeeCompliance = employees.map((emp) => {
     const empAssignments = assignments.filter((a) => a.employeeId === emp.id);
@@ -283,7 +351,7 @@ export default function HRCompliancePage() {
         (a) => a.moduleId === moduleId,
       );
 
-      return moduleAssignments.some((a) => a.status === 'completed');
+      return moduleAssignments.some((a) => getComplianceStatus(a) === 'completed');
     });
 
 
@@ -345,7 +413,7 @@ export default function HRCompliancePage() {
         <div>
           <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Compliance</h1>
           <p className="text-sm text-gray-600 mt-1 dark:text-slate-300">
-            Manage training, assignments, and compliance tracking.
+            Manage policy acknowledgments, certifications, training, and audit readiness.
           </p>
         </div>
 
@@ -353,70 +421,184 @@ export default function HRCompliancePage() {
           onClick={() => setShowForm(!showForm)}
           className="bg-[#00ACC1] text-white px-4 py-2 rounded-lg text-sm hover:opacity-90"
         >
-          {showForm ? 'Close' : 'Create Training'}
+          {showForm ? 'Close' : 'Create Requirement'}
         </button>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-4">
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+          <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+            Risk score
+          </p>
+          <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-white">
+            {riskScore}%
+          </p>
+          <p className="mt-1 text-xs text-gray-500">
+            {riskScore >= 85 ? 'Green' : riskScore >= 60 ? 'Yellow' : 'Red'} readiness
+          </p>
+        </div>
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+          <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+            Completed
+          </p>
+          <p className="mt-2 text-3xl font-bold text-green-600">
+            {completedAssignments.length}
+          </p>
+          <p className="mt-1 text-xs text-gray-500">documented records</p>
+        </div>
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+          <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+            Overdue
+          </p>
+          <p className="mt-2 text-3xl font-bold text-red-600">
+            {overdueAssignments.length}
+          </p>
+          <p className="mt-1 text-xs text-gray-500">needs HR follow-up</p>
+        </div>
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+          <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+            Expiring soon
+          </p>
+          <p className="mt-2 text-3xl font-bold text-orange-600">
+            {expiringAssignments.length}
+          </p>
+          <p className="mt-1 text-xs text-gray-500">within 60 days</p>
+        </div>
       </div>
 
       {/* ================= FORM ================= */}
       {showForm && (
-        <div className="border rounded-2xl p-4 bg-white space-y-4">
-          <h2 className="font-medium text-gray-900">New Training Module</h2>
+        <div className="border rounded-2xl p-4 bg-white space-y-4 dark:border-slate-800 dark:bg-slate-900">
+          <h2 className="font-medium text-gray-900 dark:text-white">
+            New compliance requirement
+          </h2>
 
           <input
             type="text"
-            placeholder="Title"
+            placeholder="Title, e.g. Employee Handbook Acknowledgment"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="w-full border rounded-lg px-3 py-2 text-sm"
+            className="w-full border rounded-lg px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
           />
 
           <textarea
             placeholder="Description"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            className="w-full border rounded-lg px-3 py-2 text-sm"
+            className="w-full border rounded-lg px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
           />
 
           <select
             value={type}
-            onChange={(e) => setType(e.target.value)}
-            className="w-full border rounded-lg px-3 py-2 text-sm"
+            onChange={(e) => setType(e.target.value as ComplianceType | '')}
+            className="w-full border rounded-lg px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
           >
             <option value="">Select type</option>
-            <option value="policy">Policy</option>
-            <option value="training">Training</option>
+            <option value="policy">Policy acknowledgment</option>
+            <option value="certification">Certification/license</option>
+            <option value="training">Mandatory training</option>
+            <option value="task">Compliance task</option>
           </select>
+
+          <div className="grid gap-3 md:grid-cols-2">
+            <input
+              type="url"
+              placeholder="Document or training URL (optional)"
+              value={documentUrl}
+              onChange={(e) => setDocumentUrl(e.target.value)}
+              className="w-full border rounded-lg px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+            />
+
+            <input
+              type="text"
+              placeholder="Issuing authority (optional)"
+              value={issuingAuthority}
+              onChange={(e) => setIssuingAuthority(e.target.value)}
+              className="w-full border rounded-lg px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+            />
+
+            <label className="text-xs font-medium text-gray-600 dark:text-slate-300">
+              Due date
+              <input
+                type="date"
+                value={defaultDueDate}
+                onChange={(e) => setDefaultDueDate(e.target.value)}
+                className="mt-1 w-full border rounded-lg px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+              />
+            </label>
+
+            <label className="text-xs font-medium text-gray-600 dark:text-slate-300">
+              Expiration date for certification/license
+              <input
+                type="date"
+                value={defaultExpiresAt}
+                onChange={(e) => setDefaultExpiresAt(e.target.value)}
+                disabled={type !== 'certification'}
+                className="mt-1 w-full border rounded-lg px-3 py-2 text-sm disabled:bg-gray-100 dark:border-slate-700 dark:bg-slate-950"
+              />
+            </label>
+          </div>
 
           <button
             onClick={handleSave}
             className="bg-[#004d59] text-white px-4 py-2 rounded-lg text-sm"
           >
-            Save Module
+            Save requirement
           </button>
         </div>
       )}
 
       {/* ================= MODULES ================= */}
       <div className="space-y-3">
-        <h2 className="text-lg font-medium">Training Modules</h2>
+        <h2 className="text-lg font-medium">Compliance Requirements</h2>
 
         {modules.length === 0 && (
           <div className="text-sm text-gray-500">
-            No training modules yet. Create your first training to begin
-            compliance tracking.
+            No compliance requirements yet. Create your first policy,
+            certification, training, or task to begin compliance tracking.
           </div>
         )}
 
         {modules.map((module) => (
-          <div key={module.id} className="border rounded-xl p-4 bg-white">
-            <h3 className="font-medium text-gray-900">{module.title}</h3>
-            <p className="text-sm text-gray-600 mt-1">{module.description}</p>
+          <div
+            key={module.id}
+            className="border rounded-xl p-4 bg-white dark:border-slate-800 dark:bg-slate-900"
+          >
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h3 className="font-medium text-gray-900 dark:text-white">
+                  {module.title}
+                </h3>
+                <p className="text-sm text-gray-600 mt-1 dark:text-slate-300">
+                  {module.description || 'No description added.'}
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2 text-xs text-gray-500">
+                  <span>Due: {formatDate(module.defaultDueDate)}</span>
+                  {module.type === 'certification' && (
+                    <span>Expires: {formatDate(module.defaultExpiresAt)}</span>
+                  )}
+                  {module.issuingAuthority && (
+                    <span>Issuer: {module.issuingAuthority}</span>
+                  )}
+                  {module.documentUrl && (
+                    <a
+                      href={module.documentUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="font-medium text-[#008FA1] underline"
+                    >
+                      Open document
+                    </a>
+                  )}
+                </div>
+              </div>
 
-            <div className="flex items-center justify-between mt-3">
               <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
-                {module.type}
+                {complianceTypeLabel(module.type)}
               </span>
+            </div>
 
+            <div className="flex items-center justify-end mt-3">
               <button
                 onClick={() => setAssigningId(module.id)}
                 className="bg-[#00ACC1] text-white px-3 py-1 rounded text-xs"

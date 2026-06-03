@@ -288,10 +288,13 @@ service cloud.firestore {
 
         allow update: if canManageCompany(companyId)
           || (
-            isCompanyMember(companyId)
+            isEmployeeOwner(companyId, resource.data.employeeId)
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
               'status',
-              'completedAt'
+              'completedAt',
+              'acknowledgedAt',
+              'licenseNumber',
+              'completionNote'
             ])
           );
 

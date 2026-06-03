@@ -472,6 +472,7 @@ export function useEmployees(companyId?: string, pageSize = 10) {
 
           for (const moduleDoc of modulesSnap.docs) {
             if (assignedModuleIds.has(moduleDoc.id)) continue;
+            const moduleData = moduleDoc.data();
 
             await addDoc(
               collection(db, 'companies', companyId!, 'complianceAssignments'),
@@ -479,6 +480,8 @@ export function useEmployees(companyId?: string, pageSize = 10) {
                 moduleId: moduleDoc.id,
                 employeeId,
                 status: 'pending',
+                dueDate: moduleData.defaultDueDate ?? null,
+                expiresAt: moduleData.defaultExpiresAt ?? null,
                 createdAt: serverTimestamp(),
               },
             );
