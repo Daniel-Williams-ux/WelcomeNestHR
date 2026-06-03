@@ -7,10 +7,11 @@ import {
   collection,
   getDocs,
   doc,
-  updateDoc,
   serverTimestamp,
+  writeBatch,
 } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
+import { db, storage } from '@/lib/firebase';
 import { useUserAccess } from '@/hooks/useUserAccess';
 import { query, where } from 'firebase/firestore';
 import {
@@ -43,6 +44,7 @@ export default function CompliancePage() {
   const [loading, setLoading] = useState(true);
   const [licenseNumber, setLicenseNumber] = useState<Record<string, string>>({});
   const [completionNote, setCompletionNote] = useState<Record<string, string>>({});
+  const [evidenceFiles, setEvidenceFiles] = useState<Record<string, File | null>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -71,8 +73,12 @@ export default function CompliancePage() {
             status: data.status,
             dueDate: data.dueDate,
             expiresAt: data.expiresAt,
+            submittedAt: data.submittedAt,
             completedAt: data.completedAt,
             acknowledgedAt: data.acknowledgedAt,
+            evidenceUrl: data.evidenceUrl,
+            evidenceFileName: data.evidenceFileName,
+            rejectionNote: data.rejectionNote,
             licenseNumber: data.licenseNumber,
             completionNote: data.completionNote,
           };
@@ -150,27 +156,69 @@ export default function CompliancePage() {
     if (!companyId) return;
 
     try {
-      const payload: Record<string, any> = {
-        status: 'completed',
-        completedAt: serverTimestamp(),
-      };
+      const isCertification = moduleItem.type === 'certification';
+      const payload: Record<string, any> = isCertification
+        ? {
+            status: 'submitted',
+            submittedAt: serverTimestamp(),
+            rejectionNote: '',
+          }
+        : {
+            status: 'completed',
+            completedAt: serverTimestamp(),
+          };
 
       if (moduleItem.type === 'policy') {
         payload.acknowledgedAt = serverTimestamp();
       }
 
-      if (moduleItem.type === 'certification') {
+      if (isCertification) {
         payload.licenseNumber = licenseNumber[moduleItem.assignmentId]?.trim() ?? '';
+
+        const evidenceFile = evidenceFiles[moduleItem.assignmentId];
+        if (evidenceFile) {
+          const evidenceRef = ref(
+            storage,
+            `companies/${companyId}/complianceEvidence/${employeeId}/${moduleItem.assignmentId}/${Date.now()}-${evidenceFile.name}`,
+          );
+
+          await uploadBytes(evidenceRef, evidenceFile);
+          payload.evidenceUrl = await getDownloadURL(evidenceRef);
+          payload.evidenceFileName = evidenceFile.name;
+        }
       }
 
       if (completionNote[moduleItem.assignmentId]?.trim()) {
         payload.completionNote = completionNote[moduleItem.assignmentId].trim();
       }
 
-      await updateDoc(
-        doc(db, 'companies', companyId, 'complianceAssignments', moduleItem.assignmentId),
-        payload,
+      const batch = writeBatch(db);
+      const assignmentRef = doc(
+        db,
+        'companies',
+        companyId,
+        'complianceAssignments',
+        moduleItem.assignmentId,
       );
+
+      batch.update(assignmentRef, payload);
+      batch.set(doc(collection(db, 'companies', companyId, 'complianceAuditEvents')), {
+        action: moduleItem.type === 'policy'
+          ? 'acknowledged'
+          : isCertification
+            ? 'submitted'
+            : 'completed',
+        assignmentId: moduleItem.assignmentId,
+        moduleId: moduleItem.id,
+        moduleTitle: moduleItem.title,
+        employeeId,
+        employeeName: user?.displayName || user?.email || 'Employee',
+        actorId: user?.uid ?? null,
+        actorName: user?.displayName || user?.email || 'Employee',
+        createdAt: serverTimestamp(),
+      });
+
+      await batch.commit();
 
       setModules((prev) =>
         prev.map((m) =>
@@ -179,16 +227,24 @@ export default function CompliancePage() {
                 ...m,
                 assignment: {
                   ...m.assignment,
-                  status: 'completed',
-                  completedAt: new Date().toISOString(),
+                  status: isCertification ? 'submitted' : 'completed',
+                  submittedAt: isCertification
+                    ? new Date().toISOString()
+                    : m.assignment.submittedAt,
+                  completedAt: isCertification
+                    ? m.assignment.completedAt
+                    : new Date().toISOString(),
                   acknowledgedAt:
                     m.type === 'policy'
                       ? new Date().toISOString()
                       : m.assignment.acknowledgedAt,
                   licenseNumber:
-                    m.type === 'certification'
+                    isCertification
                       ? licenseNumber[m.assignmentId]?.trim()
                       : m.assignment.licenseNumber,
+                  evidenceFileName:
+                    evidenceFiles[m.assignmentId]?.name || m.assignment.evidenceFileName,
+                  rejectionNote: '',
                   completionNote:
                     completionNote[m.assignmentId]?.trim() ||
                     m.assignment.completionNote,
@@ -288,13 +344,17 @@ export default function CompliancePage() {
                       className={`px-2 py-1 rounded-full text-xs font-medium ${
                         status === 'completed'
                           ? 'bg-green-100 text-green-700'
+                          : status === 'submitted'
+                            ? 'bg-blue-100 text-blue-700'
+                            : status === 'rejected'
+                              ? 'bg-rose-100 text-rose-700'
                           : status === 'overdue'
                             ? 'bg-red-100 text-red-700'
-                            : status === 'expiring_soon'
+                            : status === 'due_soon' || status === 'expiring_soon'
                               ? 'bg-orange-100 text-orange-700'
                               : status === 'pending'
-                            ? 'bg-yellow-100 text-yellow-700'
-                            : 'bg-gray-100 text-gray-600'
+                                ? 'bg-slate-100 text-slate-700'
+                                : 'bg-gray-100 text-gray-600'
                       }`}
                     >
                       {statusLabel(status)}
@@ -305,7 +365,11 @@ export default function CompliancePage() {
                         onClick={() => markAsCompleted(m)}
                         className="text-xs px-2 py-1 rounded bg-[#00ACC1] text-white hover:opacity-90"
                       >
-                        {m.type === 'policy' ? 'Acknowledge' : 'Mark complete'}
+                        {m.type === 'policy'
+                          ? 'Acknowledge'
+                          : m.type === 'certification'
+                            ? 'Submit for review'
+                            : 'Mark complete'}
                       </button>
                     )}
                   </div>
@@ -313,18 +377,45 @@ export default function CompliancePage() {
 
                 {status !== 'completed' && (
                   <div className="mt-4 grid gap-3 md:grid-cols-2">
+                    {m.assignment.rejectionNote && (
+                      <p className="rounded-lg bg-rose-50 p-3 text-sm text-rose-700 md:col-span-2">
+                        HR note: {m.assignment.rejectionNote}
+                      </p>
+                    )}
                     {m.type === 'certification' && (
-                      <input
-                        value={licenseNumber[m.assignmentId] ?? ''}
-                        onChange={(event) =>
-                          setLicenseNumber((current) => ({
-                            ...current,
-                            [m.assignmentId]: event.target.value,
-                          }))
-                        }
-                        placeholder="License or certification number"
-                        className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
-                      />
+                      <>
+                        <input
+                          value={licenseNumber[m.assignmentId] ?? ''}
+                          onChange={(event) =>
+                            setLicenseNumber((current) => ({
+                              ...current,
+                              [m.assignmentId]: event.target.value,
+                            }))
+                          }
+                          placeholder="License or certification number"
+                          className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
+                        />
+                        <input
+                          type="file"
+                          onChange={(event) =>
+                            setEvidenceFiles((current) => ({
+                              ...current,
+                              [m.assignmentId]: event.target.files?.[0] ?? null,
+                            }))
+                          }
+                          className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
+                        />
+                        {m.assignment.evidenceUrl && (
+                          <a
+                            href={m.assignment.evidenceUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-sm font-medium text-[#008FA1] underline md:col-span-2"
+                          >
+                            Current evidence: {m.assignment.evidenceFileName || 'Open file'}
+                          </a>
+                        )}
+                      </>
                     )}
                     <input
                       value={completionNote[m.assignmentId] ?? ''}

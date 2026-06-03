@@ -23,7 +23,7 @@ The goal is to give companies a more human operating system for onboarding and e
 ## Key Modules
 
 - **Smart Onboarding:** Company-specific onboarding flows, checklists, milestones, and employee task tracking.
-- **Compliance:** HR visibility into onboarding and required employee progress.
+- **Compliance:** Policy, training, task, and certification tracking with bulk assignment, risk queues, evidence submission, HR approval, audit history, CSV export, and global search.
 - **LifeSync:** Emotional intelligence check-ins, privacy-aware employee wellbeing logs, and a scalable company-level HR insight feed.
 - **Primer:** 30-60-90 day employee success plans with gamification, XP, levels, badges, and HR progress visibility.
 - **Collaborate:** Announcements, buddy assignment, org visibility, and employee connection tools.
@@ -46,6 +46,9 @@ companies/{companyId}
   employees/{employeeId}
   invitations/{inviteId}
   onboardingFlows/{flowId}
+  complianceModules/{moduleId}
+  complianceAssignments/{assignmentId}
+  complianceAuditEvents/{eventId}
   payrollRuns/{runId}
     items/{itemId}
   lifesyncEntries/{entryId}
@@ -59,6 +62,7 @@ Important architecture decisions:
 - Company data is scoped under `companies/{companyId}` for tenant isolation.
 - HR invitations use company subcollections and secure token validation.
 - Employee user records are linked back to company employee records through `employeeId`.
+- Compliance assignments store lightweight searchable fields so HR can search and filter assignments globally without loading every employee record.
 - LifeSync shared entries are mirrored into a company-level feed so HR can monitor hundreds of employees without opening one listener per employee.
 - Payroll runs snapshot employee salary data at run creation time to preserve historical accuracy.
 - Billing is managed at the company level rather than employee level.

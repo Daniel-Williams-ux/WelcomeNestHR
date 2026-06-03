@@ -1,0 +1,55 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userPath(uid) {
+      return /databases/(default)/documents/users/$(uid);
+    }
+
+    function employeePath(companyId, employeeId) {
+      return /databases/(default)/documents/companies/$(companyId)/employees/$(employeeId);
+    }
+
+    function hasUserDoc() {
+      return signedIn() && firestore.exists(userPath(request.auth.uid));
+    }
+
+    function currentUser() {
+      return firestore.get(userPath(request.auth.uid)).data;
+    }
+
+    function isCompanyMember(companyId) {
+      return hasUserDoc() && currentUser().companyId == companyId;
+    }
+
+    function canManageCompany(companyId) {
+      return hasUserDoc()
+        && currentUser().companyId == companyId
+        && currentUser().role in ['hr', 'superadmin'];
+    }
+
+    function isEmployeeOwner(companyId, employeeId) {
+      return signedIn()
+        && (
+          firestore.get(employeePath(companyId, employeeId)).data.uid == request.auth.uid
+          || (
+            hasUserDoc()
+            && currentUser().companyId == companyId
+            && currentUser().employeeId == employeeId
+          )
+        );
+    }
+
+    match /companies/{companyId}/complianceEvidence/{employeeId}/{allPaths=**} {
+      allow read: if isCompanyMember(companyId) || canManageCompany(companyId);
+      allow write: if isEmployeeOwner(companyId, employeeId) || canManageCompany(companyId);
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

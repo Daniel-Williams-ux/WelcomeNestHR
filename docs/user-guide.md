@@ -477,35 +477,239 @@ Wait for billing webhooks to update the company subscription, then refresh the p
 
 ## 8. HR Compliance Module
 
-The **Compliance** module helps HR monitor required modules, assignments, and employee completion status.
+The **Compliance** module is HR's control center for required employee obligations such as policy acknowledgments, mandatory training, certifications/licenses, and other compliance tasks. It is designed to stay simple for HR while still giving the company useful audit evidence and risk visibility.
 
 ### 8.1 What The Compliance Module Contains
 
 Compliance may include:
 
-- Compliance modules.
-- Employee assignment controls.
-- Completion status.
-- Employee onboarding progress.
-- Company-wide completion summaries.
+- Top summary cards for risk score, completed records, overdue records, and due/expiring soon records.
+- Compliance requirements that HR can create and assign.
+- Bulk assignment to one employee, one department, or everyone.
+- A searchable Assignment Register with status and type filters.
+- Employee evidence submissions for certifications/licenses.
+- HR approve/reject actions for submitted certifications/licenses.
+- Inline assignment history from audit events.
+- CSV export for compliance reporting.
+- A Risk Queue for daily follow-up.
 
-### 8.2 How HR Creates Compliance Modules
+### 8.2 Top Summary Cards
+
+The top cards give HR a quick view of compliance readiness:
+
+- **Risk score:** Overall compliance readiness. Higher is better. It drops when assignments are overdue, due soon, or expiring soon.
+- **Completed:** How many assignment records have been completed.
+- **Overdue:** How many assignments are past their due date or expiry date.
+- **Due or expiring soon:** How many assignments are close to a deadline or certification/license expiry.
+
+For example, if one employee has completed a requirement and another employee has the same requirement due soon, HR may see a lower risk score even though nothing is overdue yet.
+
+### 8.3 Compliance Requirements
+
+A compliance requirement is the item HR creates before assigning it to employees. It is the template or rule, not an individual employee's completion record.
+
+Examples:
+
+- Employee Handbook Acknowledgment
+- Code of Conduct acknowledgment
+- Data protection training
+- First aid certification
+- Professional license renewal
+- Workplace safety training
+
+Each requirement may include:
+
+- **Title:** What the requirement is.
+- **Description:** What the employee needs to do.
+- **Type:** Policy acknowledgment, certification/license, training, or task.
+- **Version:** The version of the policy or requirement, such as `1.0`.
+- **Due date:** The default deadline when assigned.
+- **Expiration date:** Mainly used for certifications/licenses.
+- **Document URL:** Optional link to a policy, handbook, training, or external document.
+- **Issuing authority:** Optional, mainly useful for certifications/licenses.
+
+To create a requirement:
+
+1. Open **HR Dashboard → Compliance**.
+2. Select **Create Requirement**.
+3. Enter the title, description, type, version, and any dates or links.
+4. Save the requirement.
+
+### 8.4 Assigning Compliance
+
+Under **Compliance Requirements**, find the requirement and select **Assign**.
+
+HR can assign in three simple ways:
+
+- **One employee:** Assign to a single person.
+- **Department:** Assign to everyone in a selected department.
+- **Everyone:** Assign to all employees in the company.
+
+After choosing the target, the page shows a preview such as:
+
+`2 will be assigned, 1 already assigned and skipped.`
+
+This protects HR from duplicate assignments. If an employee already has that requirement, the system skips that employee automatically.
+
+Select **Confirm assign** to create the assignments.
+
+### 8.5 Assignment Register
+
+The Assignment Register tracks actual employee assignments.
+
+A requirement becomes an assignment when it is given to an employee. For example:
+
+- Beauty + Employee Handbook = one assignment.
+- James + Employee Handbook = another assignment.
+
+Each assignment card may show:
+
+- Requirement name.
+- Employee name and department.
+- Assigned date and who assigned it, if available.
+- Type and version.
+- Due date.
+- Expiration date, if relevant.
+- Status badge.
+- Evidence link, if the employee uploaded proof.
+- Completion note, if the employee added one.
+- Rejection note, if HR rejected a submission.
+- History, when audit events exist for that assignment.
+
+### 8.6 Compliance Statuses
+
+Statuses help HR understand what needs attention:
+
+- **Pending:** Assigned, but not urgent yet.
+- **Due soon:** The deadline is close, currently within 14 days.
+- **Expiring soon:** A certification/license expiry date is within 60 days.
+- **Overdue:** The due date or expiry date has passed.
+- **Submitted:** An employee submitted a certification/license for HR review.
+- **Needs changes:** HR rejected a submitted item and left a note for the employee.
+- **Completed:** The employee finished the requirement, or HR approved the submitted certification/license.
+
+### 8.7 Search, Filters, And Paging
+
+The search box searches all assignments globally, not just the visible page. HR can search by employee, department, role/title, requirement name, or type.
+
+Examples:
+
+- `beauty`
+- `sales`
+- `handbook`
+
+Filters include:
+
+- **All statuses:** Shows everything.
+- **Risk only:** Shows due-soon, expiring-soon, and overdue records.
+- **Pending:** Assigned but not urgent.
+- **Submitted:** Waiting for HR review.
+- **Needs changes:** Rejected and needs employee correction.
+- **Due soon:** Deadline close.
+- **Overdue:** Late.
+- **Expiring soon:** License/certification close to expiry.
+- **Completed:** Finished records.
+
+The type filter lets HR filter by policy, certification/license, training, or task.
+
+The register loads records in pages so it remains usable for large companies.
+
+### 8.8 Evidence And HR Review
+
+For certifications/licenses, employees can submit:
+
+- License or certification number.
+- Evidence file.
+- Optional completion note.
+
+When an employee submits certification evidence, the assignment becomes **Submitted**.
+
+HR can then review it in the Assignment Register:
 
 1. Open **Compliance**.
-2. Create a compliance module with a title, description, and type.
-3. Save the module.
-4. Assign the module to the relevant employee.
+2. Use the **Submitted** filter if needed.
+3. Review the license/certification number, evidence, and note.
+4. Select **Approve** if the evidence is acceptable.
+5. Select **Reject** if it needs changes.
+6. Add a rejection note so the employee knows what to fix.
 
-### 8.3 How HR Reviews Compliance
+If HR approves it, the assignment becomes **Completed**. If HR rejects it, the employee sees the note and can resubmit.
 
-Use Compliance to check:
+### 8.9 Export CSV
 
-- Which employees have assigned modules.
-- Which modules are pending or complete.
-- Which employees may need follow-up.
-- How onboarding progress contributes to compliance readiness.
+The **Export CSV** button downloads a compliance report based on the current search and filter view.
 
-### 8.4 Common Compliance Issues
+The export may include:
+
+- Requirement.
+- Version.
+- Employee.
+- Department.
+- Status.
+- Due date.
+- Expiry date.
+- Evidence URL.
+- Notes.
+
+Use CSV export for quick internal reviews, compliance checks, or audit preparation.
+
+### 8.10 Compliance Coverage Summary
+
+The Compliance Coverage Summary shows completion coverage across assignment records.
+
+For example:
+
+`Assignment completion rate: 50% across 2 active records.`
+
+This means there are 2 total assignments, and 1 of them is complete.
+
+### 8.11 Compliance Risk Queue
+
+The Risk Queue is HR's follow-up list.
+
+It only shows employees with real deadline risk:
+
+- Overdue.
+- Due soon.
+- Expiring soon.
+
+Use this section daily to know who HR needs to chase. The **Send reminder** link opens a prefilled email reminder so HR can follow up quickly without a complicated notification workflow.
+
+### 8.12 Audit Trail
+
+HR does not need to manage the audit trail manually.
+
+The system records events in the background when:
+
+- HR assigns a requirement.
+- An employee acknowledges a policy.
+- An employee submits certification/license evidence.
+- HR approves a submission.
+- HR rejects a submission.
+- An employee completes a training or task.
+
+Examples:
+
+- Daniel assigned Employee Handbook to James on Jun 3, 2026.
+- Beauty acknowledged Employee Handbook on Jun 3, 2026.
+- James submitted First Aid Certificate for review.
+- Daniel approved James's First Aid Certificate.
+- Daniel rejected a license submission with a note.
+
+The page keeps this simple by showing useful history inside assignment cards, without requiring HR to manage a separate audit system.
+
+### 8.13 Recommended HR Compliance Workflow
+
+1. Create a requirement.
+2. Add a clear version, such as `1.0`.
+3. Assign it to one employee, a department, or everyone.
+4. Watch the top cards for completed, overdue, and due/expiring soon records.
+5. Use the Risk Queue to follow up with employees who need attention.
+6. Use the Submitted and Needs changes filters to manage certification reviews.
+7. Use search/filter to find specific employees or requirements.
+8. Export CSV when you need a quick report.
+
+### 8.14 Common Compliance Issues
 
 **Compliance shows no employees**
 
@@ -518,6 +722,14 @@ Check whether the page is showing employees with assigned modules only or all em
 **Employee is not assigned**
 
 Assign the compliance module to the employee from the Compliance page.
+
+**Employee cannot upload evidence**
+
+Firebase Storage must be enabled for the project. If uploads fail, ask a technical administrator to confirm that Firebase Storage is set up and storage rules are deployed.
+
+**Submitted item is not complete**
+
+Submitted certifications/licenses still need HR review. Approve the submission to mark it complete, or reject it with a note if changes are needed.
 
 ## 9. HR Collaborate Module
 
@@ -828,25 +1040,80 @@ Contact HR to confirm your employee record and company assignment.
 
 ## 17. Employee Compliance Module
 
-The **Compliance** module helps employees view required compliance tasks or assignments.
+The **Compliance** module helps employees view and complete required policies, training, certifications/licenses, and compliance tasks assigned by HR.
 
 ### 17.1 What Employees See
 
 Employees may see:
 
-- Assigned compliance modules.
-- Required tasks.
-- Completion status.
-- Related onboarding or training items.
+- Assigned compliance requirements.
+- Requirement type, such as policy, certification/license, training, or task.
+- Due date.
+- Expiration date, if relevant.
+- Status badge.
+- Document or training link, if HR provided one.
+- License/certification number field when needed.
+- Evidence upload field for certifications/licenses.
+- Optional completion note.
+- HR feedback if a submission needs changes.
 
 ### 17.2 How Employees Use Compliance
 
-1. Open **Compliance**.
-2. Review assigned modules or tasks.
-3. Complete each required item.
-4. Confirm the completion status updates.
+1. Open **Employee Dashboard → Compliance**.
+2. Review each assigned requirement.
+3. Open any document or training link provided by HR.
+4. Complete the required action.
+5. Add any requested information, such as a license number or completion note.
+6. Submit, acknowledge, or mark the item complete.
+7. Confirm that the status updates.
 
-### 17.3 Common Compliance Issues For Employees
+### 17.3 Policy Acknowledgments
+
+For a policy acknowledgment, employees should:
+
+1. Read the policy or linked document carefully.
+2. Add an optional note if needed.
+3. Select **Acknowledge**.
+
+After acknowledgment, the status becomes **Completed**.
+
+### 17.4 Certifications And Licenses
+
+For certifications/licenses, employees may need to submit:
+
+- License or certification number.
+- Evidence file, such as a certificate or proof document.
+- Optional completion note.
+
+After submitting, the status becomes **Submitted**. This means HR still needs to review the evidence.
+
+If HR approves the submission, the status becomes **Completed**.
+
+If HR rejects the submission, the status becomes **Needs changes** and the employee should read HR's note, correct the issue, and submit again.
+
+### 17.5 Training And Tasks
+
+For training or general compliance tasks:
+
+1. Complete the training or task as instructed.
+2. Add an optional completion note if useful.
+3. Select **Mark complete**.
+
+After completion, the status becomes **Completed**.
+
+### 17.6 Employee Compliance Statuses
+
+Employees may see these statuses:
+
+- **Pending:** Assigned, but not urgent yet.
+- **Due soon:** The deadline is close.
+- **Overdue:** The deadline has passed.
+- **Expiring soon:** A certification/license is close to expiry.
+- **Submitted:** Sent to HR for review.
+- **Needs changes:** HR rejected the submission and left feedback.
+- **Completed:** Finished or approved.
+
+### 17.7 Common Compliance Issues For Employees
 
 **No compliance modules appear**
 
@@ -855,6 +1122,18 @@ HR may not have assigned any modules yet.
 **A required item is unclear**
 
 Contact HR for clarification before marking it complete.
+
+**Certification is submitted but not completed**
+
+HR still needs to review and approve it.
+
+**Submission says Needs changes**
+
+Read HR's note, correct the issue, and resubmit the certification/license evidence.
+
+**Evidence upload does not work**
+
+Contact HR. The company may need a technical administrator to confirm Firebase Storage setup.
 
 ## 18. Employee Primer Module
 

@@ -19,6 +19,10 @@ import {
   getCountFromServer,
 } from 'firebase/firestore';
 import { createEmployee } from '@/lib/employees/createEmployee';
+import {
+  buildComplianceAssignmentSearchFields,
+  type ComplianceModule,
+} from '@/lib/compliance';
 
 export interface Employee {
   id: string;
@@ -472,7 +476,7 @@ export function useEmployees(companyId?: string, pageSize = 10) {
 
           for (const moduleDoc of modulesSnap.docs) {
             if (assignedModuleIds.has(moduleDoc.id)) continue;
-            const moduleData = moduleDoc.data();
+            const moduleData = moduleDoc.data() as Omit<ComplianceModule, 'id'>;
 
             await addDoc(
               collection(db, 'companies', companyId!, 'complianceAssignments'),
@@ -480,8 +484,22 @@ export function useEmployees(companyId?: string, pageSize = 10) {
                 moduleId: moduleDoc.id,
                 employeeId,
                 status: 'pending',
+                ...buildComplianceAssignmentSearchFields({
+                  employee: {
+                    name: data.name,
+                    department: data.department,
+                    title: data.title,
+                  },
+                  module: {
+                    title: moduleData.title,
+                    type: moduleData.type,
+                  },
+                }),
                 dueDate: moduleData.defaultDueDate ?? null,
                 expiresAt: moduleData.defaultExpiresAt ?? null,
+                assignedAt: serverTimestamp(),
+                assignedBy: null,
+                assignedByName: 'System auto-assignment',
                 createdAt: serverTimestamp(),
               },
             );
